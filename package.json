@@ -1,0 +1,6 @@
+{
+  "packageManager": "pnpm@10.28.2",
+  "devDependencies": {
+    "shadcn": "^4.7.0"
+  }
+}

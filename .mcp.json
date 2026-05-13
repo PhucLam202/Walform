@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "sui-dev-mcp": {
+      "command": "node",
+      "args": [
+        ".codex/sui-dev-agents/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "SUI_NETWORK": "testnet"
+      }
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ]
+    }
+  }
+}

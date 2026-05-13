@@ -1,0 +1,295 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-ui);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-heading: var(--font-serif);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* WalForm design tokens */
+  --wf-background: #f7f8fb;
+  --wf-background-soft: #fbfcff;
+  --wf-surface: #ffffff;
+  --wf-surface-muted: #f8fafc;
+
+  --wf-foreground: #111827;
+  --wf-muted-foreground: #64748b;
+  --wf-subtle-foreground: #94a3b8;
+
+  --wf-border: #e2e8f0;
+  --wf-border-strong: #cbd5e1;
+
+  --wf-primary: #7c3aed;
+  --wf-primary-hover: #6d28d9;
+  --wf-primary-soft: #f5f3ff;
+  --wf-primary-border: #ddd6fe;
+
+  --wf-dark: #111827;
+  --wf-dark-hover: #020617;
+
+  --wf-success-bg: #ecfdf5;
+  --wf-success-text: #047857;
+  --wf-success-border: #a7f3d0;
+
+  --wf-danger-bg: #fff1f2;
+  --wf-danger-text: #be123c;
+  --wf-danger-border: #fecdd3;
+
+  --wf-warning: #f59e0b;
+
+  /* Dashboard Home Hub — mint/dark-green palette */
+  --hub-bg: #f4fcf7;
+  --hub-primary: #124741;
+  --hub-primary-dark: #0d302c;
+  --hub-muted: #6c8289;
+  --hub-accent: #91e0da;
+  --hub-surface-soft: #eef8f4;
+  --hub-surface: rgba(255, 255, 255, 0.88);
+  --hub-border: rgba(108, 130, 137, 0.18);
+  --hub-border-accent: rgba(145, 224, 218, 0.45);
+  --font-serif: Georgia, "Times New Roman", Times, serif;
+  --font-ui: "Segoe UI", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* shadcn tokens mapped to WalForm palette */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.42 0.22 293);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.42 0.22 293 / 30%);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.42 0.22 293);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.62 0.22 293);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.62 0.22 293);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  html {
+    @apply font-sans;
+    min-height: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100%;
+    margin: 0;
+    background:
+      radial-gradient(circle at top left, rgba(124, 58, 237, 0.09), transparent 34rem),
+      linear-gradient(180deg, #fbfcff 0%, #f7f8fb 45%, #f3f5f9 100%);
+    color: var(--wf-foreground);
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  ::selection {
+    background: var(--wf-primary-soft);
+    color: var(--wf-primary-hover);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+    border: 2px solid #f1f5f9;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+/* WalForm utility classes */
+.wf-glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px);
+}
+
+.wf-card {
+  background: var(--wf-surface);
+  border: 1px solid var(--wf-border);
+  border-radius: 24px;
+  box-shadow: 0 10px 34px rgba(15, 23, 42, 0.045);
+}
+
+.wf-focus {
+  outline: none;
+}
+
+.wf-focus:focus {
+  border-color: #c4b5fd;
+  box-shadow: 0 0 0 4px #ede9fe;
+}
+
+.wf-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid var(--wf-border);
+  padding: 0.75rem 1rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.wf-input:focus {
+  border-color: #c4b5fd;
+  box-shadow: 0 0 0 4px #ede9fe;
+}
+
+/* Hub utility classes */
+.hub-font-serif {
+  font-family: var(--font-serif);
+}
+
+.hub-font-ui {
+  font-family: var(--font-ui);
+}
+
+.hub-card {
+  background: var(--hub-surface);
+  border: 1px solid var(--hub-border);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(18, 71, 65, 0.06);
+}
+
+.hub-glass-header {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--hub-border-accent);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 2px 16px rgba(18, 71, 65, 0.07);
+}
