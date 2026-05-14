@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  // Required by Walrus SDK — prevents Next.js from bundling WASM modules server-side
   serverExternalPackages: ['@mysten/walrus', '@mysten/walrus-wasm'],
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
 };
 
 export default nextConfig;

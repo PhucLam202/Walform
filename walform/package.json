@@ -10,8 +10,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.63",
-    "@ai-sdk/react": "^3.0.179",
     "@base-ui/react": "^1.4.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -22,8 +20,6 @@
     "@mysten/sui": "^2.16.2",
     "@mysten/walrus": "^1.1.6",
     "@tanstack/react-query": "^5.100.9",
-    "aftermath-ts-sdk": "^2.0.1",
-    "ai": "^6.0.177",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",

@@ -14,27 +14,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAllSubmissions } from '@/hooks/useSubmissions';
 import { useWalletActivity } from '@/hooks/useWalletActivity';
 import type { FormOnChain } from '@/types/form';
-import type { DashboardForm, DashboardSubmission, ChartDataPoint } from '@/types/dashboard';
+import type { DashboardForm, DashboardSubmission } from '@/types/dashboard';
 
 interface DashboardHomeHubProps {
   forms: FormOnChain[];
   isLoading: boolean;
   address?: string;
-}
-
-function buildChartData(timestamps: number[]): ChartDataPoint[] {
-  const today = new Date();
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (6 - i));
-    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const dayStart = new Date(d);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(d);
-    dayEnd.setHours(23, 59, 59, 999);
-    const responses = timestamps.filter((ts) => ts >= dayStart.getTime() && ts <= dayEnd.getTime()).length;
-    return { day: label, responses };
-  });
 }
 
 export function DashboardHomeHub({ forms, isLoading, address }: DashboardHomeHubProps) {
@@ -57,14 +42,17 @@ export function DashboardHomeHub({ forms, isLoading, address }: DashboardHomeHub
 
   const totalSubmissions = forms.reduce((s, f) => s + f.submission_count, 0);
 
-  const chartData = useMemo(
-    () => buildChartData(loadedSubmissions.map((s) => s.blob.submittedAt)),
+  const submissionTimestamps = useMemo(
+    () => loadedSubmissions.map((s) => s.blob.submittedAt),
     [loadedSubmissions],
   );
 
   const responsesLast7Days = useMemo(
-    () => chartData.reduce((sum, d) => sum + d.responses, 0),
-    [chartData],
+    () => {
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      return submissionTimestamps.filter((ts) => ts >= cutoff).length;
+    },
+    [submissionTimestamps],
   );
 
   const submissions: DashboardSubmission[] = useMemo(() => {
@@ -144,14 +132,14 @@ export function DashboardHomeHub({ forms, isLoading, address }: DashboardHomeHub
       <div className="space-y-6">
         {/* Row 1: Chart & Recent Forms */}
         <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-          <ResponseChart data={chartData} />
+          <ResponseChart timestamps={submissionTimestamps} />
           <RecentForms forms={dashboardForms.slice(0, 4)} />
         </div>
 
         {/* Row 2: Submissions Table & Sidebar Activity */}
         <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
           {/* Left column: Submissions & Popular Forms */}
-          <div className="space-y-6 min-w-0">
+          <div id="submissions" className="space-y-6 min-w-0">
             <RecentSubmissions submissions={submissions} firstFormId={forms[0]?.id} />
             <PopularForms forms={dashboardForms} />
           </div>
