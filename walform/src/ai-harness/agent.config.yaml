@@ -1,0 +1,78 @@
+# AI harness routing config.
+# Secrets are read from environment variables; do not put raw API keys here.
+
+version: 1
+
+main_agent:
+  id: walform-main-agent
+  role: intent_router
+  provider: openai
+  api_key_env: OPENAI_API_KEY
+  model_env: OPENAI_MODEL
+  default_model: gpt-4o-mini
+  responsibilities:
+    - parse_user_intent
+    - decide_when_to_call_wallet_tools
+    - decide_when_to_delegate_data_lookup
+    - synthesize_final_response
+  guardrails:
+    - never_request_seed_phrase_or_private_key
+    - never_claim_transaction_execution_without_digest
+    - require_user_confirmation_for_transfer_and_swap
+
+subagents:
+  - id: deepseek-data-agent
+    role: data_lookup_assistant
+    provider: deepseek
+    api_key_env: DEEPSEEK_API_KEY
+    base_url_env: DEEPSEEK_BASE_URL
+    default_base_url: https://api.deepseek.com
+    model_env: DEEPSEEK_MODEL
+    default_model: deepseek-chat
+    responsibilities:
+      - answer_data_lookup_questions
+      - summarize_onchain_tool_outputs
+      - normalize_swap_or_wallet_context_for_main_agent
+    constraints:
+      - read_only
+      - no_wallet_signing
+      - no_transaction_execution
+      - return_structured_findings_to_main_agent
+
+delegation_policy:
+  default: main_agent_only
+  delegate_to_deepseek_when:
+    - user_requests_wallet_or_onchain_data_explanation
+    - user_requests_swap_route_or_token_context
+    - tool_output_needs_summarization_before_user_response
+  do_not_delegate_when:
+    - user_requests_transfer_or_swap_confirmation
+    - user_requests_secret_or_private_key_handling
+    - wallet_signature_or_transaction_execution_is_pending
+
+tool_permissions:
+  read_tools:
+    auto_execute_after_wallet_connected: true
+    tools:
+      - getWalletInfo
+      - getSuiBalance
+      - getOwnedObjects
+      - getWalFormPortfolio
+  action_tools:
+    require_user_confirmation: true
+    require_wallet_signature: true
+    tools:
+      - proposeTransferSui
+      - proposeSwap
+
+response_contract:
+  subagent_to_main:
+    format: json
+    schema:
+      summary: string
+      facts: array
+      risks: array
+      suggested_next_action: string
+  main_to_user:
+    style: concise
+    include_transaction_digest_only_after_execution: true

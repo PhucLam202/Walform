@@ -20,7 +20,7 @@ const ACTIONS = [
     iconColor: '#124741',
   },
   {
-    href: '/dashboard#submissions',
+    href: '/dashboard',
     icon: Inbox,
     label: 'View submissions',
     description: 'Review and export form responses.',

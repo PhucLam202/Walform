@@ -10,6 +10,7 @@ import { useFormDetail, useFormFieldLabels } from '@/hooks/useForms';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { FileBlobPreview } from './FileBlobPreview';
+import type { SubmissionPriority } from '@/types/submission';
 
 interface SubmissionDetailProps {
   blobId: string | null;
@@ -23,7 +24,7 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
   const { data: form } = useFormDetail(formId);
   const fieldLabels = useFormFieldLabels(form?.config_blob_id);
   const { decrypt, decrypting, getSessionKey } = useDecrypt();
-  const { getAnnotation, setNote, isSaving } = useAnnotations(formId, adminCapId, getSessionKey());
+  const { getAnnotation, setNote, setPriority, isSaving } = useAnnotations(formId, adminCapId, getSessionKey());
 
   const annotation = blobId ? getAnnotation(blobId) : null;
   const [decryptedFields, setDecryptedFields] = useState<Record<string, unknown> | null>(null);
@@ -49,8 +50,8 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
       <DialogContent
         showCloseButton={false}
         className="
-          !max-w-none !w-[min(1280px,calc(100vw-2rem))]
-          max-h-[90vh] overflow-y-auto
+          !max-w-none !w-[min(780px,calc(100vw-2rem))]
+          max-h-[88vh] overflow-y-auto
           rounded-[2rem] border border-slate-200 bg-white p-0
           shadow-[0_32px_80px_-12px_rgba(0,0,0,0.18)]
           sm:!max-w-none
@@ -103,13 +104,11 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 divide-y divide-slate-200">
                     {Object.entries(submission.plainFields).map(([key, val]) => (
-                      <div key={key} className="grid grid-cols-1 gap-2 px-5 py-4 md:grid-cols-[200px_minmax(0,1fr)] md:gap-6">
-                        <span className="text-sm font-bold capitalize text-slate-500">
+                      <div key={key} className="flex gap-6 px-5 py-4">
+                        <span className="w-44 shrink-0 text-sm font-bold capitalize text-slate-500">
                           {fieldLabels[key] ?? key.replace(/_/g, ' ')}
                         </span>
-                        <span className="text-sm whitespace-pre-wrap break-words text-slate-900 min-w-0">
-                          {String(val)}
-                        </span>
+                        <span className="text-sm break-words text-slate-900 flex-1">{String(val)}</span>
                       </div>
                     ))}
                   </div>
@@ -129,13 +128,11 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
                   {decryptedFields ? (
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 divide-y divide-emerald-100">
                       {Object.entries(decryptedFields).map(([key, val]) => (
-                        <div key={key} className="grid grid-cols-1 gap-2 px-5 py-4 md:grid-cols-[200px_minmax(0,1fr)] md:gap-6">
-                          <span className="text-sm font-bold capitalize text-emerald-700">
+                        <div key={key} className="flex gap-6 px-5 py-4">
+                          <span className="w-44 shrink-0 text-sm font-bold capitalize text-emerald-700">
                             {fieldLabels[key] ?? key.replace(/_/g, ' ')}
                           </span>
-                          <span className="text-sm whitespace-pre-wrap break-words text-slate-900 min-w-0">
-                            {String(val)}
-                          </span>
+                          <span className="text-sm break-words text-slate-900 flex-1">{String(val)}</span>
                         </div>
                       ))}
                     </div>
@@ -187,6 +184,34 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
                             fileName={info.fileName}
                           />
                         </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Priority */}
+              {blobId && annotation && (
+                <section>
+                  <h3 className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">Priority</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(['critical', 'high', 'medium', 'low'] as SubmissionPriority[]).map((p) => {
+                      const PRIORITY_CONFIG = {
+                        critical: { label: '🔴 Critical', active: 'bg-rose-600 text-white border-rose-600', inactive: 'border-rose-200 text-rose-700 hover:bg-rose-50' },
+                        high:     { label: '🟠 High',     active: 'bg-orange-500 text-white border-orange-500', inactive: 'border-orange-200 text-orange-700 hover:bg-orange-50' },
+                        medium:   { label: '🟡 Medium',   active: 'bg-amber-400 text-white border-amber-400',  inactive: 'border-amber-200 text-amber-700 hover:bg-amber-50' },
+                        low:      { label: '🟢 Low',      active: 'bg-emerald-500 text-white border-emerald-500', inactive: 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' },
+                      };
+                      const cfg = PRIORITY_CONFIG[p];
+                      const isActive = annotation.priority === p;
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setPriority(blobId, p)}
+                          className={['rounded-2xl border px-4 py-2 text-sm font-extrabold transition', isActive ? cfg.active : cfg.inactive].join(' ')}
+                        >
+                          {cfg.label}
+                        </button>
                       );
                     })}
                   </div>
