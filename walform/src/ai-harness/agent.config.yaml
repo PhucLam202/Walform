@@ -13,7 +13,7 @@ main_agent:
   responsibilities:
     - parse_user_intent
     - decide_when_to_call_wallet_tools
-    - decide_when_to_delegate_data_lookup
+    - delegate_small_read_only_analysis_to_deepseek
     - synthesize_final_response
   guardrails:
     - never_request_seed_phrase_or_private_key
@@ -29,8 +29,15 @@ subagents:
     default_base_url: https://api.deepseek.com
     model_env: DEEPSEEK_MODEL
     default_model: deepseek-chat
+    server_options:
+      thinking_enabled: true
+      max_output_tokens: 900
+      temperature: 0.2
+      top_p: 0.9
+      timeout_ms: 15000
+      context_max_chars: 8000
     responsibilities:
-      - answer_data_lookup_questions
+      - answer_delegated_read_only_analysis_tasks
       - summarize_onchain_tool_outputs
       - normalize_swap_or_wallet_context_for_main_agent
     constraints:
@@ -45,6 +52,7 @@ delegation_policy:
     - user_requests_wallet_or_onchain_data_explanation
     - user_requests_swap_route_or_token_context
     - tool_output_needs_summarization_before_user_response
+    - main_agent_has_small_context_analysis_task
   do_not_delegate_when:
     - user_requests_transfer_or_swap_confirmation
     - user_requests_secret_or_private_key_handling
@@ -56,6 +64,7 @@ tool_permissions:
     tools:
       - getWalletInfo
       - getSuiBalance
+      - getCoinBalances
       - getOwnedObjects
       - getWalFormPortfolio
   action_tools:
@@ -63,6 +72,9 @@ tool_permissions:
     require_wallet_signature: true
     tools:
       - proposeTransferSui
+      - proposeTransferSuiMany
+      - proposeTransferObject
+      - proposeBatchTransfer
       - proposeSwap
 
 response_contract:

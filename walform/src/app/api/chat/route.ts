@@ -1,12 +1,90 @@
+import { createDeepSeek, type DeepSeekLanguageModelOptions } from '@ai-sdk/deepseek';
 import { openai } from '@ai-sdk/openai';
-import { convertToModelMessages, streamText, tool, type UIMessage } from 'ai';
+import { convertToModelMessages, generateText, streamText, tool, type UIMessage } from 'ai';
 import { z } from 'zod';
 
 export const maxDuration = 30;
 
-const model = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+const openaiModel = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+const deepseekModel = process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
+const deepseekBaseURL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com';
+const deepseekMaxOutputTokens = 900;
+const deepseekTemperature = 0.2;
+const deepseekTopP = 0.9;
+const deepseekTimeoutMs = 15000;
+const deepseekContextMaxChars = 8000;
+const deepseekThinkingEnabled = true;
+
+function truncateText(value: string, maxChars: number) {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, maxChars)}\n\n[truncated: ${value.length - maxChars} chars omitted]`;
+}
+
+function getDeepSeekProviderOptions() {
+  return {
+    deepseek: {
+      thinking: { type: deepseekThinkingEnabled ? 'enabled' : 'disabled' },
+    } satisfies DeepSeekLanguageModelOptions,
+  };
+}
+
+function makeDeepSeekProvider() {
+  return createDeepSeek({
+    apiKey: process.env.DEEPSEEK_API_KEY,
+    baseURL: deepseekBaseURL,
+  });
+}
 
 const chatTools = {
+  askDeepSeekDataAgent: tool({
+    description: [
+      'Delegate smaller read-only data analysis tasks to the DeepSeek subagent.',
+      'Use this after wallet/read tool outputs need summarization, normalization, or lightweight on-chain/token/context analysis.',
+      'Do not use it for wallet signing, private keys, transfer confirmation, swap execution, or final safety decisions.',
+    ].join(' '),
+    inputSchema: z.object({
+      task: z.string().describe('The specific read-only analysis task for the DeepSeek subagent.'),
+      context: z.string().describe('Relevant user request, session memory, and tool outputs to analyze.'),
+    }),
+    execute: async ({ task, context }) => {
+      if (!process.env.DEEPSEEK_API_KEY) {
+        return {
+          ok: false,
+          error: 'Missing DEEPSEEK_API_KEY. Add it to .env.local to enable the DeepSeek data subagent.',
+        };
+      }
+
+      const result = await generateText({
+        model: makeDeepSeekProvider()(deepseekModel),
+        maxOutputTokens: deepseekMaxOutputTokens,
+        temperature: deepseekTemperature,
+        topP: deepseekTopP,
+        timeout: { totalMs: deepseekTimeoutMs },
+        providerOptions: getDeepSeekProviderOptions(),
+        system: [
+          'You are the WalForm DeepSeek data subagent.',
+          'Handle only small read-only analysis tasks delegated by the main OpenAI agent.',
+          'Analyze wallet/tool outputs, on-chain context, token balances, owned objects, WalForm portfolio data, and swap/token context.',
+          'Never request seed phrases, private keys, wallet recovery secrets, or signatures.',
+          'Never claim a transaction or swap was executed.',
+          'Return concise JSON only with keys: summary, facts, risks, suggested_next_action.',
+        ].join(' '),
+        prompt: [
+          `Task: ${task}`,
+          '',
+          'Context:',
+          truncateText(context, deepseekContextMaxChars),
+        ].join('\n'),
+      });
+
+      return {
+        ok: true,
+        data: result.text,
+        agent: 'deepseek-data-agent',
+        model: deepseekModel,
+      };
+    },
+  }),
   getWalletInfo: tool({
     description: 'Read the connected Sui wallet address and selected app network. Use when the user asks about their wallet connection or address.',
     inputSchema: z.object({}),
@@ -90,12 +168,15 @@ export async function POST(req: Request) {
   } = await req.json();
 
   const result = streamText({
-    model: openai(model),
+    model: openai(openaiModel),
     system: [
       'You are WalForm Assistant, a concise product guide embedded in the WalForm app.',
+      'You are the main OpenAI agent: parse intent, decide which tools are needed, and synthesize the final answer.',
+      'For smaller read-only data analysis tasks, delegate to askDeepSeekDataAgent and use its structured findings in your final response.',
       'Help users build forms, understand Walrus storage, Sui ownership, Seal encryption, and dashboard workflows.',
       'You can use wallet tools to read connected wallet information and on-chain data.',
       'Distinguish fungible tokens from owned objects: use getCoinBalances for token/coin questions, and getOwnedObjects only for NFTs or object resources.',
+      'Use askDeepSeekDataAgent after read-only tool outputs need summarization, normalization, or lightweight data lookup so the main OpenAI agent does less low-level analysis.',
       'For transfer and swap requests, only create a proposal. Never claim a transaction was executed unless the UI reports a transaction digest.',
       'Use proposeTransferSuiMany when the user asks to send SUI to multiple wallet addresses in one transaction.',
       'Use proposeBatchTransfer when the user wants to send BOTH SUI and objects/NFTs to the SAME address in one transaction — this produces a single PTB and requires only one wallet signature.',
