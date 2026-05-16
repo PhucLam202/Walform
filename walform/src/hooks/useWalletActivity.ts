@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getRecentTransactions } from '@/lib/sui-client';
+import { SUI_NETWORK } from '@/lib/constants';
 import type { WalletActivityItem } from '@/types/dashboard';
 
 function formatTime(ms: number): string {
@@ -15,7 +16,7 @@ function formatTime(ms: number): string {
 
 export function useWalletActivity(address: string | undefined) {
   return useQuery({
-    queryKey: ['wallet-activity', address],
+    queryKey: ['wallet-activity', SUI_NETWORK, address],
     queryFn: async (): Promise<WalletActivityItem[]> => {
       const txs = await getRecentTransactions(address!, 20);
       return txs.map((tx) => ({

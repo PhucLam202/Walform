@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-const AGGREGATOR = 'https://aggregator.walrus-testnet.walrus.space';
+const AGGREGATOR = 'https://aggregator.walrus-mainnet.walrus.space';
 
 interface SubmitSuccessScreenProps {
   formTitle: string;

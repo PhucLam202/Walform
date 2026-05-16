@@ -9,7 +9,6 @@ import { useFormDetail } from '@/hooks/useForms';
 import { useSubmissionIndex } from '@/hooks/useSubmissions';
 import { AppFooter } from '@/components/shared/AppFooter';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { WalletGuard } from '@/components/shared/WalletGuard';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { SubmissionTable } from '@/components/dashboard/SubmissionTable';
 import { SubmissionDetail } from '@/components/dashboard/SubmissionDetail';
@@ -34,6 +33,7 @@ import type { FormOnChain, FormConfig } from '@/types/form';
 import type { SubmissionBlob } from '@/types/submission';
 import { exportToCSV } from '@/lib/export';
 import { downloadJSON } from '@/lib/walrus';
+import { PACKAGE_ID, SUI_NETWORK, explorerObjectUrl, walrusBlobUrl } from '@/lib/constants';
 import { useAnnotations } from '@/hooks/useAnnotations';
 
 /* ── helpers ── */
@@ -90,7 +90,7 @@ function BlobRow({
       </div>
     );
   }
-  const explorerUrl = isObjectId ? `https://testnet.suivision.xyz/object/${value}` : undefined;
+  const explorerUrl = isObjectId ? explorerObjectUrl(value) : undefined;
   return (
     <div className="border-b py-3 last:border-0" style={{ borderColor: 'var(--hub-border)' }}>
       <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-[var(--hub-muted)]">{label}</p>
@@ -130,7 +130,7 @@ function FormDetailContent({ formId }: { formId: string }) {
   const { data: index } = useSubmissionIndex(form?.submissions_index_blob_id);
 
   const { data: adminCapId } = useQuery({
-    queryKey: ['admin-cap', account?.address, formId],
+    queryKey: ['admin-cap', SUI_NETWORK, PACKAGE_ID, account?.address, formId],
     queryFn: () => getAdminCap(account!.address, formId),
     enabled: !!account?.address,
   });
@@ -155,16 +155,16 @@ function FormDetailContent({ formId }: { formId: string }) {
   }
 
   function handleSynced(newIndexBlobId: string, syncedCount: number) {
-    queryClient.setQueryData<FormOnChain>(['form', formId], (old) =>
+    queryClient.setQueryData<FormOnChain>(['form', SUI_NETWORK, PACKAGE_ID, formId], (old) =>
       old ? { ...old, submissions_index_blob_id: newIndexBlobId, submission_count: old.submission_count + syncedCount } : old,
     );
-    queryClient.setQueryData<FormOnChain[]>(['owned-forms', account?.address], (old) =>
+    queryClient.setQueryData<FormOnChain[]>(['owned-forms', SUI_NETWORK, PACKAGE_ID, account?.address], (old) =>
       old?.map((f) => f.id === formId ? { ...f, submission_count: f.submission_count + syncedCount } : f),
     );
-    queryClient.invalidateQueries({ queryKey: ['submission-index'] });
+    queryClient.invalidateQueries({ queryKey: ['submission-index', SUI_NETWORK] });
     setTimeout(() => {
       refetchForm();
-      queryClient.invalidateQueries({ queryKey: ['owned-forms'] });
+      queryClient.invalidateQueries({ queryKey: ['owned-forms', SUI_NETWORK, PACKAGE_ID] });
     }, 5000);
   }
 
@@ -176,7 +176,7 @@ function FormDetailContent({ formId }: { formId: string }) {
       const blobIdsToExport = index?.blobIds ?? [];
       const submissions = await Promise.all(
         blobIdsToExport.map(async (id) => {
-          const cached = queryClient.getQueryData<SubmissionBlob>(['submission', id]);
+          const cached = queryClient.getQueryData<SubmissionBlob>(['submission', SUI_NETWORK, id]);
           const blob = cached ?? await downloadJSON<SubmissionBlob>(id);
           return { blobId: id, blob, annotation: getAnnotation(id) };
         }),
@@ -212,7 +212,7 @@ function FormDetailContent({ formId }: { formId: string }) {
           <FileText className="size-7" />
         </div>
         <h2 className="mt-4 text-xl font-bold text-[var(--hub-primary)]">Form not found</h2>
-        <p className="mt-2 text-sm text-[var(--hub-muted)]">This form may have been deleted or doesn't exist.</p>
+        <p className="mt-2 text-sm text-[var(--hub-muted)]">This form may have been deleted or does not exist.</p>
       </div>
     );
   }
@@ -345,13 +345,13 @@ function FormDetailContent({ formId }: { formId: string }) {
             <BlobRow
               label="Config Blob"
               value={form.config_blob_id}
-              walrusUrl={`https://aggregator.walrus-testnet.walrus.space/v1/blobs/${form.config_blob_id}`}
+              walrusUrl={walrusBlobUrl(form.config_blob_id)}
             />
             <BlobRow
               label="Index Blob"
               value={form.submissions_index_blob_id ?? ''}
               walrusUrl={form.submissions_index_blob_id
-                ? `https://aggregator.walrus-testnet.walrus.space/v1/blobs/${form.submissions_index_blob_id}`
+                ? walrusBlobUrl(form.submissions_index_blob_id)
                 : undefined}
               empty={!form.submissions_index_blob_id}
             />
@@ -385,9 +385,7 @@ export default function FormDetailPage({ params }: { params: Promise<{ formId: s
           <ArrowLeft className="size-4" />
           Back to Dashboard
         </Link>
-        <WalletGuard>
-          <FormDetailContent formId={formId} />
-        </WalletGuard>
+        <FormDetailContent formId={formId} />
       </main>
       <AppFooter className="!bg-[rgba(244,252,247,0.9)]" />
     </div>

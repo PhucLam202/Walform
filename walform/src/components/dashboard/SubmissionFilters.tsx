@@ -1,12 +1,10 @@
 'use client';
 
-import type { SubmissionStatus, SubmissionPriority } from '@/types/submission';
+import type { SubmissionStatus } from '@/types/submission';
 
 interface SubmissionFiltersProps {
   statusFilter: SubmissionStatus | 'all';
   onStatusChange: (s: SubmissionStatus | 'all') => void;
-  priorityFilter: SubmissionPriority | 'all';
-  onPriorityChange: (p: SubmissionPriority | 'all') => void;
   sortOrder: 'newest' | 'oldest';
   onSortChange: (s: 'newest' | 'oldest') => void;
   searchQuery: string;
@@ -22,19 +20,9 @@ const STATUS_OPTIONS: Array<{ value: SubmissionStatus | 'all'; label: string }> 
   { value: 'spam', label: 'Spam' },
 ];
 
-const PRIORITY_OPTIONS: Array<{ value: SubmissionPriority | 'all'; label: string }> = [
-  { value: 'all', label: 'Any priority' },
-  { value: 'critical', label: '🔴 Critical' },
-  { value: 'high', label: '🟠 High' },
-  { value: 'medium', label: '🟡 Medium' },
-  { value: 'low', label: '🟢 Low' },
-];
-
 export function SubmissionFilters({
   statusFilter,
   onStatusChange,
-  priorityFilter,
-  onPriorityChange,
   sortOrder,
   onSortChange,
   searchQuery,
@@ -59,17 +47,6 @@ export function SubmissionFilters({
           </button>
         ))}
       </div>
-
-      {/* Priority filter */}
-      <select
-        value={priorityFilter}
-        onChange={(e) => onPriorityChange(e.target.value as SubmissionPriority | 'all')}
-        className="rounded-xl border px-3 py-1.5 text-xs font-bold text-slate-600"
-      >
-        {PRIORITY_OPTIONS.map(({ value, label }) => (
-          <option key={value} value={value}>{label}</option>
-        ))}
-      </select>
 
       {/* Sort */}
       <select

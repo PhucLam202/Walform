@@ -4,7 +4,6 @@ import { useSubmission } from '@/hooks/useSubmissions';
 import { useAnnotations } from '@/hooks/useAnnotations';
 import { useFormDetail, useFormFieldLabels } from '@/hooks/useForms';
 import { StatusBadge } from './StatusBadge';
-import { PriorityBadge } from './PriorityBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Clock, Lock, Eye } from 'lucide-react';
 
@@ -52,15 +51,12 @@ export function SubmissionRow({ index, blobId, formId, onViewDetail }: Submissio
 
   return (
     <article className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg">
-      {/* Top row: index + priority + status */}
+      {/* Top row: index + status */}
       <div className="flex items-start justify-between gap-3">
         <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-xs font-extrabold text-slate-600">
           #{index + 1}
         </span>
-        <div className="flex gap-1.5">
-          <PriorityBadge priority={annotation.priority} />
-          <StatusBadge status={annotation.status} />
-        </div>
+        <StatusBadge status={annotation.status} />
       </div>
 
       {/* Timestamp */}

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Inbox } from 'lucide-react';
 import { SubmissionRow } from './SubmissionRow';
 import { SubmissionFilters } from './SubmissionFilters';
 import { useAnnotations } from '@/hooks/useAnnotations';
-import type { SubmissionStatus, SubmissionPriority } from '@/types/submission';
+import type { SubmissionStatus } from '@/types/submission';
 
 interface SubmissionTableProps {
   blobIds: string[];
@@ -15,23 +15,14 @@ interface SubmissionTableProps {
 
 export function SubmissionTable({ blobIds, formId, onViewDetail }: SubmissionTableProps) {
   const [statusFilter, setStatusFilter] = useState<SubmissionStatus | 'all'>('all');
-  const [priorityFilter, setPriorityFilter] = useState<SubmissionPriority | 'all'>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [searchQuery, setSearchQuery] = useState('');
   const { getAnnotation } = useAnnotations(formId, null, null);
 
-  const filteredIds = useMemo(() => {
-    let ids = sortOrder === 'newest' ? [...blobIds].reverse() : [...blobIds];
-
-    if (statusFilter !== 'all') {
-      ids = ids.filter((id) => getAnnotation(id).status === statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      ids = ids.filter((id) => getAnnotation(id).priority === priorityFilter);
-    }
-
-    return ids;
-  }, [blobIds, statusFilter, priorityFilter, sortOrder, getAnnotation]);
+  let filteredIds = sortOrder === 'newest' ? [...blobIds].reverse() : [...blobIds];
+  if (statusFilter !== 'all') {
+    filteredIds = filteredIds.filter((id) => getAnnotation(id).status === statusFilter);
+  }
 
   if (blobIds.length === 0) {
     return (
@@ -54,8 +45,6 @@ export function SubmissionTable({ blobIds, formId, onViewDetail }: SubmissionTab
       <SubmissionFilters
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
-        priorityFilter={priorityFilter}
-        onPriorityChange={setPriorityFilter}
         sortOrder={sortOrder}
         onSortChange={setSortOrder}
         searchQuery={searchQuery}

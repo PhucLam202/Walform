@@ -16,7 +16,6 @@ import { buildUpdateAnnotationsBlobTx } from '@/lib/contracts';
 import type {
   SubmissionAnnotation,
   SubmissionStatus,
-  SubmissionPriority,
   AnnotationsBlob,
 } from '@/types/submission';
 
@@ -116,18 +115,5 @@ export function useAnnotations(
     [annotations, saveMutation],
   );
 
-  const setPriority = useCallback(
-    (blobId: string, priority: SubmissionPriority) => {
-      const current = { ...annotations };
-      current[blobId] = {
-        ...(current[blobId] ?? { status: 'new', note: '', updatedAt: 0 }),
-        priority,
-        updatedAt: Date.now(),
-      };
-      saveMutation.mutate(current);
-    },
-    [annotations, saveMutation],
-  );
-
-  return { getAnnotation, setStatus, setNote, setPriority, isSaving: saveMutation.isPending };
+  return { getAnnotation, setStatus, setNote, isSaving: saveMutation.isPending };
 }
