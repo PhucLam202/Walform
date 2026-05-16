@@ -29,6 +29,7 @@ export function StatsGrid({ totalForms, totalSubmissions, uniqueRespondents, onC
         label="Responses in last 7 days"
         value={responsesLast7Days}
         trend={`${responsesLast7Days} response${responsesLast7Days !== 1 ? 's' : ''} this week`}
+        trendPositive={responsesLast7Days > 0 ? true : undefined}
       />
       <StatCard
         icon={<LinkIcon className="size-5" />}

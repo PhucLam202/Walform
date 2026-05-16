@@ -49,3 +49,7 @@ next-env.d.ts
 .vercel
 .codex/
 .pnpm-store/
+
+# ===== TOOL INTERNALS =====
+.claude/
+.serena/

@@ -77,7 +77,7 @@ export function RecentForms({ forms }: RecentFormsProps) {
           Recent forms
         </h3>
         <Link
-          href="/dashboard#forms"
+          href="/dashboard/forms"
           className="text-xs font-bold text-[#6c8289] transition hover:text-[#124741]"
         >
           View all

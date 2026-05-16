@@ -49,13 +49,21 @@ export function getSealSuiClient(): SealCompatibleClient {
   return _suiClient;
 }
 
+export function resetSealClient(): void {
+  _sealClient = null;
+  _suiClient = null;
+}
+
 export function createSealClient(suiClient: SealCompatibleClient = getSealSuiClient()): SealClient {
   assertSealConfigured();
   if (!_sealClient) {
+    // verifyKeyServers=false: we use the testnet Seal committee servers cross-network for the hackathon.
+    // On-chain object verification would fail because the server objects live on testnet while the app
+    // targets mainnet. This is an accepted trade-off documented in .env.production.
     _sealClient = new SealClient({
       suiClient,
       serverConfigs: SEAL_KEY_SERVERS,
-      verifyKeyServers: true,
+      verifyKeyServers: false,
     });
   }
   return _sealClient;

@@ -5,6 +5,29 @@ import { z } from 'zod';
 
 export const maxDuration = 30;
 
+// ── Chat rate limiter ──────────────────────────────────────────────────────────
+const CHAT_RATE_LIMIT = 20;
+const CHAT_RATE_WINDOW_MS = 60_000;
+type RateEntry = { count: number; resetsAt: number };
+const chatRateStore = (globalThis as typeof globalThis & { __chatRateStore?: Map<string, RateEntry> }).__chatRateStore ??= new Map();
+
+function checkChatRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = chatRateStore.get(ip);
+  if (!entry || entry.resetsAt <= now) {
+    chatRateStore.set(ip, { count: 1, resetsAt: now + CHAT_RATE_WINDOW_MS });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= CHAT_RATE_LIMIT;
+}
+
+// ── Request schema ─────────────────────────────────────────────────────────────
+const chatRequestSchema = z.object({
+  messages: z.array(z.record(z.string(), z.unknown())).min(1).max(100),
+  memory: z.string().max(8000).optional(),
+});
+
 const openaiModel = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
 const deepseekModel = process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
 const deepseekBaseURL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com';
@@ -159,13 +182,26 @@ export async function POST(req: Request) {
     );
   }
 
-  const {
-    messages,
-    memory,
-  }: {
-    messages: UIMessage[];
-    memory?: string;
-  } = await req.json();
+  const ip =
+    (req.headers.get('x-forwarded-for') ?? '').split(',').at(-1)?.trim() ||
+    (req.headers.get('x-real-ip') ?? 'unknown');
+  if (!checkChatRateLimit(ip)) {
+    return Response.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+
+  const parsed = chatRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const { messages, memory } = parsed.data as unknown as { messages: UIMessage[]; memory?: string };
 
   const result = streamText({
     model: openai(openaiModel),

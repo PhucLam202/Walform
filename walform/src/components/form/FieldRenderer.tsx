@@ -19,7 +19,7 @@ interface FieldRendererProps {
   // preview / read-only mode
   readOnly?: boolean;
   // file upload callback — only used in editable mode
-  onFileUploaded?: (fieldId: string, blobId: string, file: File) => void;
+  onFileUploaded?: (fieldId: string, blobId: string, file: File, encKey?: string) => void;
   // hide the built-in label row (when a parent wrapper already renders the label)
   hideLabel?: boolean;
 }
@@ -253,9 +253,10 @@ export function FieldRenderer({
           <FileUploader
             accept={field.validation.allowedFileTypes?.join(',')}
             maxSizeMB={field.validation.maxFileSizeMB}
-            onUploaded={(blobId, file) => {
+            isSensitive={field.isSensitive}
+            onUploaded={(blobId, file, encKey) => {
               onChange?.(blobId);
-              onFileUploaded?.(field.id, blobId, file);
+              onFileUploaded?.(field.id, blobId, file, encKey);
             }}
           />
         )

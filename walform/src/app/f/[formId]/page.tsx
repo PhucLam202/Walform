@@ -142,6 +142,7 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
   const [configError, setConfigError] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [fileBlobs, setFileBlobs] = useState<Record<string, { blobId: string; mimeType: string; fileName: string }>>({});
+  const [fileEncKeys, setFileEncKeys] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -166,8 +167,11 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
     }
   }
 
-  function handleFileUploaded(fieldId: string, blobId: string, file: File) {
+  function handleFileUploaded(fieldId: string, blobId: string, file: File, encKey?: string) {
     setFileBlobs((prev) => ({ ...prev, [fieldId]: { blobId, mimeType: file.type, fileName: file.name } }));
+    if (encKey) {
+      setFileEncKeys((prev) => ({ ...prev, [fieldId]: encKey }));
+    }
   }
 
   function validate(): boolean {
@@ -209,21 +213,24 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
       let encryptedFields: string | undefined;
       let sealRef: string | undefined;
 
-      if (Object.keys(sensitiveData).length > 0 && PACKAGE_ID) {
-        try {
-          const result = await encryptForForm({
-            sealClient: getSealClient(),
-            formId: form.id,
-            data: JSON.stringify(sensitiveData),
-          });
-          encryptedFields = result.encryptedData;
-          sealRef = result.sealRef;
-        } catch {
-          Object.assign(plainFields, sensitiveData);
-          toast.warning('Seal not configured — sensitive fields stored unencrypted');
+      // Fold file encryption keys into sensitiveData so Seal covers them
+      for (const [fieldId, key] of Object.entries(fileEncKeys)) {
+        sensitiveData[`_fileKey_${fieldId}`] = key;
+      }
+
+      if (Object.keys(sensitiveData).length > 0) {
+        if (!PACKAGE_ID) {
+          throw new Error(
+            'Encryption is not available for this form. Submission blocked to protect your data.',
+          );
         }
-      } else if (Object.keys(sensitiveData).length > 0) {
-        Object.assign(plainFields, sensitiveData);
+        const result = await encryptForForm({
+          sealClient: getSealClient(),
+          formId: form.id,
+          data: JSON.stringify(sensitiveData),
+        });
+        encryptedFields = result.encryptedData;
+        sealRef = result.sealRef;
       }
 
       const submissionBlobId = await uploadSubmissionBlob({
@@ -369,6 +376,7 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
                 setSubmitted(false);
                 setFormValues({});
                 setFileBlobs({});
+                setFileEncKeys({});
               }}
             />
           ) : (

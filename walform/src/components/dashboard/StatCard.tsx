@@ -5,9 +5,10 @@ interface StatCardProps {
   label: string;
   value: number | string;
   trend?: string;
+  trendPositive?: boolean;
 }
 
-export function StatCard({ icon, label, value, trend }: StatCardProps) {
+export function StatCard({ icon, label, value, trend, trendPositive }: StatCardProps) {
   return (
     <article
       className="hub-card flex items-center gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-lg"
@@ -33,8 +34,11 @@ export function StatCard({ icon, label, value, trend }: StatCardProps) {
           {value}
         </h3>
         {trend && (
-          <p className="mt-1 text-xs font-bold" style={{ color: '#2a9d8f' }}>
-            ↑ {trend}
+          <p
+            className="mt-1 text-xs font-bold"
+            style={{ color: trendPositive === false ? '#b91c1c' : '#2a9d8f' }}
+          >
+            {trendPositive === true ? '↑' : trendPositive === false ? '↓' : '→'} {trend}
           </p>
         )}
       </div>

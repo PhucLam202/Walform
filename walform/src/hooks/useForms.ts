@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getFormObject, getOwnedForms } from '@/lib/sui-client';
 import { downloadJSON } from '@/lib/walrus';
@@ -32,6 +33,8 @@ export function useFormFieldLabels(configBlobId: string | undefined): Record<str
     enabled: !!configBlobId,
     staleTime: Infinity,
   });
-  if (!data) return {};
-  return Object.fromEntries(data.fields.map((f) => [f.id, f.label]));
+  return useMemo(
+    () => (data ? Object.fromEntries(data.fields.map((f) => [f.id, f.label])) : {}),
+    [data],
+  );
 }

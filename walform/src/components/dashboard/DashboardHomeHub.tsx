@@ -38,7 +38,7 @@ function buildChartData(timestamps: number[]): ChartDataPoint[] {
 }
 
 export function DashboardHomeHub({ forms, isLoading, address }: DashboardHomeHubProps) {
-  const { submissions: loadedSubmissions } = useAllSubmissions(forms);
+  const { submissions: loadedSubmissions, isLoading: submissionsLoading } = useAllSubmissions(forms);
   const { data: walletActivity = [] } = useWalletActivity(address);
 
   const dashboardForms: DashboardForm[] = useMemo(
@@ -133,7 +133,7 @@ export function DashboardHomeHub({ forms, isLoading, address }: DashboardHomeHub
         totalForms={forms.length}
         totalSubmissions={totalSubmissions}
         uniqueRespondents={totalSubmissions}
-        onChainTx={forms.length}
+        onChainTx={walletActivity.length}
         responsesLast7Days={responsesLast7Days}
       />
 
@@ -144,7 +144,10 @@ export function DashboardHomeHub({ forms, isLoading, address }: DashboardHomeHub
       <div className="space-y-6">
         {/* Row 1: Chart & Recent Forms */}
         <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-          <ResponseChart data={chartData} />
+          <ResponseChart
+            timestamps={loadedSubmissions.map((s) => s.blob.submittedAt)}
+            isLoading={submissionsLoading}
+          />
           <RecentForms forms={dashboardForms.slice(0, 4)} />
         </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { EXPLORER_BASE_URL } from '@/lib/constants';
 import type { WalletActivityItem } from '@/types/dashboard';
 
 interface WalletActivityProps {
@@ -10,8 +11,8 @@ interface WalletActivityProps {
 
 export function WalletActivity({ items, address }: WalletActivityProps) {
   const explorerUrl = address
-    ? `https://suiscan.xyz/testnet/account/${address}`
-    : 'https://suiscan.xyz/testnet';
+    ? `${EXPLORER_BASE_URL}/account/${address}`
+    : EXPLORER_BASE_URL;
   const visible = items.slice(0, 5);
 
   return (

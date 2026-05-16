@@ -31,6 +31,7 @@ export interface LoadedSubmission {
 export function useAllSubmissions(forms: FormOnChain[]): {
   submissions: LoadedSubmission[];
   isLoading: boolean;
+  isError: boolean;
 } {
   // Step 1: fetch all submission indices in parallel
   const indexQueries = useQueries({
@@ -73,6 +74,8 @@ export function useAllSubmissions(forms: FormOnChain[]): {
 
   const isLoading =
     indexQueries.some((q) => q.isLoading) || blobQueries.some((q) => q.isLoading);
+  const isError =
+    indexQueries.some((q) => q.isError) || blobQueries.some((q) => q.isError);
 
-  return { submissions, isLoading };
+  return { submissions, isLoading, isError };
 }

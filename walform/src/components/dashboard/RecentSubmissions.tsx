@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { EXPLORER_BASE_URL } from '@/lib/constants';
 import type { DashboardSubmission } from '@/types/dashboard';
 
 const PAGE_SIZE = 10;
@@ -105,7 +106,7 @@ export function RecentSubmissions({ submissions, firstFormId }: RecentSubmission
                   <td className="px-4 py-3 pr-6 font-mono text-xs text-[#6c8289]">
                     {s.txHash ? (
                       <a
-                        href={`https://suiexplorer.com/txblock/${s.txHash}?network=testnet`}
+                        href={`${EXPLORER_BASE_URL}/txblock/${s.txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline hover:text-[#124741]"

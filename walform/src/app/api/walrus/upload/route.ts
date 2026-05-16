@@ -63,6 +63,16 @@ function classifyUploadError(message: string): { status: number; code: string } 
   if (normalized.includes('missing_private_key')) {
     return { status: 500, code: 'missing_private_key' };
   }
+  // bech32 key-format errors: env var is set but contains an invalid/placeholder value
+  if (
+    normalized.includes('letter') ||
+    normalized.includes('bech32') ||
+    normalized.includes('invalid character') ||
+    normalized.includes('must be present between prefix') ||
+    normalized.includes('unsupported_private_key_scheme')
+  ) {
+    return { status: 500, code: 'invalid_private_key' };
+  }
   if (normalized.includes('tip') && normalized.includes('max')) {
     return { status: 502, code: 'relay_tip_exceeds_max' };
   }
@@ -86,10 +96,30 @@ function classifyUploadError(message: string): { status: number; code: string } 
   return { status: 502, code: 'walrus_upload_failed' };
 }
 
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100 MB
+
 export async function POST(req: Request) {
   try {
+    const contentLength = req.headers.get('content-length');
+    if (contentLength !== null) {
+      const declared = parseInt(contentLength, 10);
+      if (!Number.isFinite(declared) || declared > MAX_UPLOAD_BYTES) {
+        return NextResponse.json(
+          { error: 'File too large', code: 'file_too_large' },
+          { status: 413 },
+        );
+      }
+    }
+
     const contentType = req.headers.get('content-type') ?? 'application/octet-stream';
     const bytes = new Uint8Array(await req.arrayBuffer());
+
+    if (bytes.byteLength > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: 'File too large', code: 'file_too_large' },
+        { status: 413 },
+      );
+    }
     const client = getWalrusClient();
     const signer = getServerSigner();
 
@@ -111,13 +141,18 @@ export async function POST(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const { status, code } = classifyUploadError(message);
+    console.error('[walrus/upload] error', { code, message });
+    const clientMessage: Record<string, string> = {
+      missing_private_key: 'Server configuration error',
+      invalid_private_key: 'Server configuration error',
+      relay_tip_exceeds_max: 'Upload relay configuration error',
+      insufficient_sui_or_wal: 'Insufficient gas or WAL funds',
+      relay_unreachable: 'Upload service temporarily unavailable',
+      file_too_large: 'File too large',
+      walrus_upload_failed: 'Upload failed',
+    };
     return NextResponse.json(
-      {
-        error: message,
-        code,
-        relayHost: WALRUS_UPLOAD_RELAY_HOST,
-        maxTipMist: WALRUS_UPLOAD_RELAY_MAX_TIP_MIST,
-      },
+      { error: clientMessage[code] ?? 'Upload failed', code },
       { status },
     );
   }

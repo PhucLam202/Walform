@@ -28,7 +28,24 @@ export function SyncPendingButton({ form, adminCapId, onSynced }: SyncPendingBut
     }
     setSyncing(true);
     try {
-      const res = await fetch(`/api/pending-submissions?formId=${form.id}`);
+      const sessionRes = await fetch('/api/form-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formId: form.id }),
+      });
+      if (!sessionRes.ok) {
+        toast.error('Could not obtain session token — check server configuration');
+        return;
+      }
+      const { token } = await sessionRes.json() as { token: string };
+
+      const res = await fetch(`/api/pending-submissions?formId=${form.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        toast.error('Unauthorized: cannot read pending submissions');
+        return;
+      }
       const { blobIds } = await res.json() as { blobIds: string[] };
 
       if (!blobIds.length) {
@@ -61,7 +78,10 @@ export function SyncPendingButton({ form, adminCapId, onSynced }: SyncPendingBut
       const txResult = await signAndExecuteTransaction({ transaction: tx });
       await suiClient.waitForTransaction({ digest: txResult.digest });
 
-      await fetch(`/api/pending-submissions?formId=${form.id}`, { method: 'DELETE' });
+      await fetch(`/api/pending-submissions?formId=${form.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       toast.success(`Synced ${blobIds.length} new submission(s)`);
       onSynced(indexBlobId!, blobIds.length);

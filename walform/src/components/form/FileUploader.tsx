@@ -9,12 +9,25 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface FileUploaderProps {
-  onUploaded: (blobId: string, file: File) => void;
+  onUploaded: (blobId: string, file: File, encKey?: string) => void;
   accept?: string;
   maxSizeMB?: number;
+  isSensitive?: boolean;
 }
 
-export function FileUploader({ onUploaded, accept, maxSizeMB = 50 }: FileUploaderProps) {
+async function aesEncryptBytes(bytes: Uint8Array): Promise<{ encrypted: ArrayBuffer; keyBase64: string }> {
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, bytes.buffer as ArrayBuffer);
+  const rawKey = await crypto.subtle.exportKey('raw', key) as ArrayBuffer;
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  const keyBase64 = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+  return { encrypted: combined.buffer as ArrayBuffer, keyBase64 };
+}
+
+export function FileUploader({ onUploaded, accept, maxSizeMB = 50, isSensitive = false }: FileUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -29,10 +42,20 @@ export function FileUploader({ onUploaded, accept, maxSizeMB = 50 }: FileUploade
     setUploading(true);
     setProgress(0);
     try {
-      const { blobId } = await uploadLargeFile(file, (pct) => setProgress(pct));
+      let encKey: string | undefined;
+      let uploadFile: File = file;
+
+      if (isSensitive) {
+        const rawBytes = new Uint8Array(await file.arrayBuffer());
+        const { encrypted, keyBase64 } = await aesEncryptBytes(rawBytes);
+        uploadFile = new File([encrypted as ArrayBuffer], file.name, { type: 'application/octet-stream' });
+        encKey = keyBase64;
+      }
+
+      const { blobId } = await uploadLargeFile(uploadFile, (pct) => setProgress(pct));
       setUploadedFile({ name: file.name, blobId });
-      onUploaded(blobId, file);
-      toast.success('File uploaded to Walrus');
+      onUploaded(blobId, file, encKey);
+      toast.success(isSensitive ? 'File encrypted and uploaded' : 'File uploaded to Walrus');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       toast.error('Upload failed: ' + msg);
