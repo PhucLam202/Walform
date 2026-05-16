@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus, LayoutTemplate, Inbox, ChevronRight } from 'lucide-react';
+import { Plus, LayoutTemplate, ChevronRight } from 'lucide-react';
 
 const ACTIONS = [
   {
@@ -16,14 +16,6 @@ const ACTIONS = [
     icon: LayoutTemplate,
     label: 'Browse templates',
     description: 'Start from a template and customize to your needs.',
-    iconBg: '#eef8f4',
-    iconColor: '#124741',
-  },
-  {
-    href: '/dashboard',
-    icon: Inbox,
-    label: 'View submissions',
-    description: 'Review and export form responses.',
     iconBg: '#eef8f4',
     iconColor: '#124741',
   },

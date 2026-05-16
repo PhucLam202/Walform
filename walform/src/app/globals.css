@@ -62,10 +62,10 @@
   --wf-border: #e2e8f0;
   --wf-border-strong: #cbd5e1;
 
-  --wf-primary: #7c3aed;
-  --wf-primary-hover: #6d28d9;
-  --wf-primary-soft: #f5f3ff;
-  --wf-primary-border: #ddd6fe;
+  --wf-primary: #124741;
+  --wf-primary-hover: #0d302c;
+  --wf-primary-soft: #eef8f4;
+  --wf-primary-border: rgba(145, 224, 218, 0.45);
 
   --wf-dark: #111827;
   --wf-dark-hover: #020617;
@@ -178,8 +178,8 @@
     min-height: 100%;
     margin: 0;
     background:
-      radial-gradient(circle at top left, rgba(124, 58, 237, 0.09), transparent 34rem),
-      linear-gradient(180deg, #fbfcff 0%, #f7f8fb 45%, #f3f5f9 100%);
+      radial-gradient(circle at top left, rgba(145, 224, 218, 0.08), transparent 34rem),
+      linear-gradient(180deg, #f7fbf9 0%, #f4fcf7 45%, #eef8f4 100%);
     color: var(--wf-foreground);
     font-family:
       Inter,
@@ -211,8 +211,8 @@
   }
 
   ::selection {
-    background: var(--wf-primary-soft);
-    color: var(--wf-primary-hover);
+    background: #eef8f4;
+    color: #124741;
   }
 
   ::-webkit-scrollbar {
@@ -253,8 +253,8 @@
 }
 
 .wf-focus:focus {
-  border-color: #c4b5fd;
-  box-shadow: 0 0 0 4px #ede9fe;
+  border-color: #91e0da;
+  box-shadow: 0 0 0 4px rgba(145, 224, 218, 0.22);
 }
 
 .wf-input {
@@ -267,8 +267,8 @@
 }
 
 .wf-input:focus {
-  border-color: #c4b5fd;
-  box-shadow: 0 0 0 4px #ede9fe;
+  border-color: #91e0da;
+  box-shadow: 0 0 0 4px rgba(145, 224, 218, 0.22);
 }
 
 /* Hub utility classes */

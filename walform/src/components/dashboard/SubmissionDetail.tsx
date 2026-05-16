@@ -60,7 +60,7 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
         <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-8 py-6">
           <div>
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-700">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#eef8f4] text-[#124741]">
                 <FileText className="size-5" />
               </div>
               <h2 className="text-2xl font-extrabold tracking-tight text-slate-950">

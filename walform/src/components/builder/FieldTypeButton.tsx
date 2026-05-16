@@ -29,7 +29,7 @@ export function FieldTypeButton({ type, label, icon, onClick }: FieldTypeButtonP
       className={cn(
         'flex h-16 flex-col items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 transition',
         'cursor-grab active:cursor-grabbing',
-        'hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700',
+        'hover:border-[#91e0da] hover:bg-[#eef8f4] hover:text-[#124741]',
         isDragging && 'border-dashed opacity-50',
       )}
       onClick={() => onClick(type)}

@@ -98,10 +98,10 @@ function ThreeDotMenu({ formId }: { formId: string }) {
 /* ─── Colour accent per form (based on id hash) ───────────────────────────── */
 const ACCENTS = [
   { bg: 'rgba(145,224,218,0.22)', color: '#124741' },
-  { bg: 'rgba(139,92,246,0.12)',  color: '#5b21b6' },
-  { bg: 'rgba(249,115,22,0.12)',  color: '#c2410c' },
-  { bg: 'rgba(59,130,246,0.12)',  color: '#1d4ed8' },
-  { bg: 'rgba(236,72,153,0.12)',  color: '#9d174d' },
+  { bg: 'rgba(145,224,218,0.15)', color: '#0d302c' },
+  { bg: 'rgba(145,224,218,0.30)', color: '#15a080' },
+  { bg: 'rgba(145,224,218,0.12)', color: '#124741' },
+  { bg: 'rgba(145,224,218,0.25)', color: '#0d302c' },
 ];
 function accentFor(id: string) {
   let h = 0;

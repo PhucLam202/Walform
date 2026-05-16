@@ -27,7 +27,7 @@ export function SubmissionTable({ blobIds, formId, onViewDetail }: SubmissionTab
   if (blobIds.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-slate-200 bg-white/60 py-24 text-center">
-        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-violet-50 text-violet-600">
+        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#eef8f4] text-[#124741]">
           <Inbox className="size-7" />
         </div>
         <h3 className="mt-4 text-xl font-extrabold tracking-tight text-slate-950">

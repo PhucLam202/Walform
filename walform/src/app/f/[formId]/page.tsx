@@ -17,7 +17,7 @@ import type { FormConfig, FormField } from '@/types/form';
 
 function EncryptedBadge() {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-extrabold text-violet-700">
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#91e0da] bg-[#eef8f4] px-2.5 py-1 text-xs font-extrabold text-[#124741]">
       🔒 Encrypted
     </span>
   );
@@ -28,7 +28,7 @@ function EncryptedBadge() {
 function SecurityNotice() {
   return (
     <div className="mt-7 flex gap-3.5 rounded-[22px] border border-[var(--wf-border)] bg-[var(--wf-surface-muted)] p-4">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-violet-200 bg-violet-50 text-violet-600">
+      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[#91e0da] bg-[#eef8f4] text-[#124741]">
         🔒
       </div>
       <div>
@@ -60,7 +60,7 @@ function StyledFieldWrapper({
         <label className="text-sm font-extrabold text-[var(--wf-foreground)]" htmlFor={field.id}>
           {field.label}
           {field.validation.required && (
-            <span className="ml-1 text-violet-600">*</span>
+            <span className="ml-1 text-rose-500">*</span>
           )}
         </label>
         {field.isSensitive && <EncryptedBadge />}
@@ -113,12 +113,12 @@ function FullScreenShell({ children }: { children: React.ReactNode }) {
       className="flex min-h-screen flex-col"
       style={{
         background:
-          'radial-gradient(circle at top left,rgba(124,58,237,0.12),transparent 34rem),radial-gradient(circle at bottom right,rgba(34,211,238,0.10),transparent 30rem),linear-gradient(180deg,#fbfcff 0%,#f7f8fb 50%,#f3f5f9 100%)',
+          'radial-gradient(circle at top left,rgba(145,224,218,0.12),transparent 34rem),radial-gradient(circle at bottom right,rgba(145,224,218,0.08),transparent 30rem),linear-gradient(180deg,#f7fbf9 0%,#f4fcf7 50%,#eef8f4 100%)',
       }}
     >
       <AppHeader
         rightSlot={
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-extrabold text-violet-700">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#91e0da] bg-[#eef8f4] px-3 py-2 text-sm font-extrabold text-[#124741]">
             <span aria-hidden="true">🔒</span>
             <span className="max-sm:hidden">Secure Form</span>
           </div>
@@ -314,12 +314,12 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
       className="min-h-screen"
       style={{
         background:
-          'radial-gradient(circle at top left,rgba(124,58,237,0.12),transparent 34rem),radial-gradient(circle at bottom right,rgba(34,211,238,0.10),transparent 30rem),linear-gradient(180deg,#fbfcff 0%,#f7f8fb 50%,#f3f5f9 100%)',
+          'radial-gradient(circle at top left,rgba(145,224,218,0.12),transparent 34rem),radial-gradient(circle at bottom right,rgba(145,224,218,0.08),transparent 30rem),linear-gradient(180deg,#f7fbf9 0%,#f4fcf7 50%,#eef8f4 100%)',
       }}
     >
       <AppHeader
         rightSlot={
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-extrabold text-violet-700">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#91e0da] bg-[#eef8f4] px-3 py-2 text-sm font-extrabold text-[#124741]">
             <span aria-hidden="true">🔒</span>
             <span className="max-sm:hidden">Secure Form</span>
           </div>
@@ -382,7 +382,7 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
           ) : (
             <form
               onSubmit={handleSubmit}
-              className="relative overflow-hidden rounded-[34px] border border-[var(--wf-border)] bg-[var(--wf-surface)]/95 p-8 shadow-2xl shadow-slate-900/10 before:absolute before:inset-x-0 before:top-0 before:h-[7px] before:bg-gradient-to-r before:from-slate-950 before:via-violet-600 before:to-cyan-400 max-sm:p-6"
+              className="relative overflow-hidden rounded-[34px] border border-[var(--wf-border)] bg-[var(--wf-surface)]/95 p-8 shadow-2xl shadow-slate-900/10 before:absolute before:inset-x-0 before:top-0 before:h-[7px] before:bg-gradient-to-r before:from-[#0d302c] before:via-[#124741] before:to-[#91e0da] max-sm:p-6"
             >
               {/* Form title area */}
               <div className="mt-2 flex items-start justify-between gap-5 max-sm:flex-col">
@@ -443,8 +443,8 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
                       error={fieldErrors[field.id]}
                     >
                       <div
-                        className="[&_input]:h-[50px] [&_input]:rounded-[17px] [&_input]:border-slate-200 [&_input]:px-4 [&_input]:transition [&_input]:focus:border-violet-300 [&_input]:focus:ring-4 [&_input]:focus:ring-violet-100 [&_input]:focus:outline-none
-                        [&_textarea]:min-h-[126px] [&_textarea]:rounded-[17px] [&_textarea]:border-slate-200 [&_textarea]:px-4 [&_textarea]:py-3 [&_textarea]:transition [&_textarea]:focus:border-violet-300 [&_textarea]:focus:ring-4 [&_textarea]:focus:ring-violet-100 [&_textarea]:focus:outline-none
+                        className="[&_input]:h-[50px] [&_input]:rounded-[17px] [&_input]:border-slate-200 [&_input]:px-4 [&_input]:transition [&_input]:focus:border-[#91e0da] [&_input]:focus:ring-4 [&_input]:focus:ring-[rgba(145,224,218,0.22)] [&_input]:focus:outline-none
+                        [&_textarea]:min-h-[126px] [&_textarea]:rounded-[17px] [&_textarea]:border-slate-200 [&_textarea]:px-4 [&_textarea]:py-3 [&_textarea]:transition [&_textarea]:focus:border-[#91e0da] [&_textarea]:focus:ring-4 [&_textarea]:focus:ring-[rgba(145,224,218,0.22)] [&_textarea]:focus:outline-none
                         [&_select]:h-[50px] [&_select]:rounded-[17px] [&_select]:border-slate-200 [&_select]:px-4"
                       >
                         <FieldRenderer
@@ -466,7 +466,7 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex h-14 w-full items-center justify-center gap-2 rounded-[18px] border-0 bg-violet-600 font-black text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:pointer-events-none disabled:opacity-60"
+                    className="flex h-14 w-full items-center justify-center gap-2 rounded-[18px] border-0 bg-[#124741] font-black text-white shadow-lg shadow-[rgba(18,71,65,0.25)] transition hover:-translate-y-0.5 hover:bg-[#0d302c] disabled:pointer-events-none disabled:opacity-60"
                   >
                     {submitting && <Loader2 className="size-5 animate-spin" />}
                     {submitting ? 'Submitting…' : 'Submit Response'}
