@@ -45,7 +45,15 @@ export function walrusBlobUrl(blobId: string): string {
   return `${WALRUS_AGGREGATORS[0]}/v1/blobs/${blobId}`;
 }
 
-export const SEAL_KEY_SERVERS: Array<{ objectId: string; weight: number }> = [
-  { objectId: process.env.NEXT_PUBLIC_SEAL_SERVER_1 ?? '', weight: 1 },
-  { objectId: process.env.NEXT_PUBLIC_SEAL_SERVER_2 ?? '', weight: 1 },
+export const SEAL_KEY_SERVERS: Array<{ objectId: string; weight: number; aggregatorUrl?: string }> = [
+  {
+    objectId: process.env.NEXT_PUBLIC_SEAL_SERVER_1 ?? '',
+    weight: 1,
+    ...(process.env.NEXT_PUBLIC_SEAL_SERVER_1_URL ? { aggregatorUrl: process.env.NEXT_PUBLIC_SEAL_SERVER_1_URL } : {}),
+  },
+  {
+    objectId: process.env.NEXT_PUBLIC_SEAL_SERVER_2 ?? '',
+    weight: 1,
+    ...(process.env.NEXT_PUBLIC_SEAL_SERVER_2_URL ? { aggregatorUrl: process.env.NEXT_PUBLIC_SEAL_SERVER_2_URL } : {}),
+  },
 ].filter(s => s.objectId !== '');

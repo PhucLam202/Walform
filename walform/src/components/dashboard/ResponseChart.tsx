@@ -22,14 +22,27 @@ const CHART_TYPES: { id: ChartType; label: string }[] = [
 ];
 
 function buildData(timestamps: number[], days: Period) {
-  const today = new Date();
+  const now = new Date();
+
+  if (days === 1) {
+    // 24 hourly buckets for today
+    return Array.from({ length: 24 }, (_, i) => {
+      const hourStart = new Date(now);
+      hourStart.setHours(i, 0, 0, 0);
+      const hourEnd = new Date(now);
+      hourEnd.setHours(i, 59, 59, 999);
+      const label = hourStart.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+      const responses = timestamps.filter(
+        (ts) => ts >= hourStart.getTime() && ts <= hourEnd.getTime(),
+      ).length;
+      return { day: label, responses };
+    });
+  }
+
   return Array.from({ length: days }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (days - 1 - i));
-    const label =
-      days === 1
-        ? d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true })
-        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const d = new Date(now);
+    d.setDate(now.getDate() - (days - 1 - i));
+    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const dayStart = new Date(d);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(d);
@@ -105,7 +118,7 @@ function LineChart({ data, period, onExpandRange }: { data: { day: string; respo
     'Z',
   ].join(' ');
 
-  const labelEvery = period === 30 ? 5 : 1;
+  const labelEvery = period === 30 ? 5 : period === 1 ? 4 : 1;
 
   if (total === 0) return <EmptyChart period={period} onExpandRange={onExpandRange} />;
 

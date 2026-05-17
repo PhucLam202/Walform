@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
 import {
   DefaultChatTransport,
@@ -8,10 +8,12 @@ import {
   type UIMessage,
 } from 'ai';
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import { usePathname } from 'next/navigation';
 import {
   Bot,
   CheckCircle2,
   CircleDollarSign,
+  Copy,
   Database,
   FileKey2,
   Loader2,
@@ -39,6 +41,7 @@ import {
   getOwnedObjectSummaries,
   getSuiBalance,
   getWalletInfo,
+  getWalFormFormStats,
   getWalFormPortfolio,
   type BatchTransferProposal,
   type HarnessNetwork,
@@ -105,14 +108,6 @@ function toolData(part: ToolPart) {
   return output.ok === true ? output.data : part.output;
 }
 
-function hasRenderableDataTool(message: UIMessage) {
-  return message.parts.some((part) => {
-    if (!part.type.startsWith('tool-')) return false;
-    const toolName = part.type.replace('tool-', '');
-    return ['getWalletInfo', 'getSuiBalance', 'getCoinBalances', 'getOwnedObjects', 'getWalFormPortfolio'].includes(toolName);
-  });
-}
-
 function summarizeToolPart(part: ToolPart) {
   if (part.state !== 'output-available') return null;
 
@@ -141,7 +136,35 @@ function summarizeToolPart(part: ToolPart) {
     const forms = Array.isArray(data.forms) ? data.forms.length : 0;
     const adminCaps = Array.isArray(data.adminCaps) ? data.adminCaps.length : 0;
     const tx = Array.isArray(data.recentTransactions) ? data.recentTransactions.length : 0;
-    return `walform portfolio forms=${forms} adminCaps=${adminCaps} recentTx=${tx}`;
+    const summary = asRecord(data.summary);
+    const latestOwnedForm = asRecord(summary.latestOwnedForm);
+    const latestReceivedSubmission = asRecord(summary.latestReceivedSubmission);
+    const latestFormTitle = typeof latestOwnedForm.title === 'string' ? latestOwnedForm.title : 'none';
+    const latestSubmissionFormTitle = typeof latestReceivedSubmission.formTitle === 'string'
+      ? latestReceivedSubmission.formTitle
+      : 'none';
+    return [
+      `walform portfolio forms=${forms} adminCaps=${adminCaps} recentTx=${tx}`,
+      `latestOwnedForm=${latestFormTitle} id=${String(latestOwnedForm.id ?? 'none')} createdAt=${String(latestOwnedForm.created_at ?? 'none')}`,
+      `latestReceivedSubmissionForm=${latestSubmissionFormTitle} blobId=${String(latestReceivedSubmission.blobId ?? 'none')} submittedAt=${String(latestReceivedSubmission.submittedAt ?? 'none')}`,
+      `respondentSubmissionTrackingAvailable=${String(summary.respondentSubmissionTrackingAvailable ?? false)}`,
+    ].join(' ');
+  }
+
+  if (name === 'getWalFormFormStats') {
+    const match = String(data.match ?? 'unknown');
+    const form = asRecord(data.form);
+    const stats = asRecord(data.stats);
+    const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+    if (match === 'single') {
+      return [
+        `walform form stats match=single title=${String(form.title ?? 'unknown')} id=${String(form.id ?? 'unknown')}`,
+        `createdAt=${String(form.createdAtIso ?? form.created_at ?? 'unknown')}`,
+        `submissionCount=${String(stats.bestKnownSubmissionCount ?? form.submission_count ?? 'unknown')}`,
+        `active=${String(form.is_active ?? 'unknown')}`,
+      ].join(' ');
+    }
+    return `walform form stats match=${match} candidates=${candidates.length}`;
   }
 
   return null;
@@ -167,6 +190,46 @@ function shortId(value: string, head = 8, tail = 6) {
   return `${value.slice(0, head)}...${value.slice(-tail)}`;
 }
 
+function shortenMiddle(value: string, start = 8, end = 6): string {
+  return shortId(value, start, end);
+}
+
+function TruncatedValue({
+  value,
+  start = 8,
+  end = 6,
+  mono = false,
+  copyable = false,
+}: {
+  value: string;
+  start?: number;
+  end?: number;
+  mono?: boolean;
+  copyable?: boolean;
+}) {
+  const needsTrunc = value.length > start + end + 1;
+  const display = needsTrunc ? shortenMiddle(value, start, end) : value;
+  return (
+    <span
+      className={cn('min-w-0 break-words text-sm font-semibold text-[#124741]', mono && 'font-mono')}
+      style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal' }}
+      title={needsTrunc ? value : undefined}
+    >
+      {display}
+      {copyable && (
+        <button
+          type="button"
+          onClick={() => { void navigator.clipboard.writeText(value); toast.success('Copied!'); }}
+          className="ml-1 inline-flex size-4 items-center justify-center rounded text-[#6c8289] hover:text-[#124741]"
+          aria-label="Copy"
+        >
+          <Copy className="size-3" />
+        </button>
+      )}
+    </span>
+  );
+}
+
 function proposalTitle(proposal: TransactionProposal) {
   if (proposal.kind === 'transfer_sui') return 'SUI transfer';
   if (proposal.kind === 'transfer_sui_many') return 'Batch SUI transfer';
@@ -175,13 +238,121 @@ function proposalTitle(proposal: TransactionProposal) {
   return 'Token swap';
 }
 
+function getActiveFormId(pathname: string | null) {
+  const match = pathname?.match(/^\/forms\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function WidgetHeader({
+  accountAddress,
+  onClose,
+}: {
+  accountAddress: string | null;
+  onClose: () => void;
+}) {
+  return (
+    <header className="border-b border-[#d9ece7] bg-[linear-gradient(180deg,#ffffff,#f7fffb)] px-5 py-4 text-[#124741]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#124741] text-white shadow-sm">
+            <Bot className="size-5" />
+          </div>
+          <div className="min-w-0 overflow-hidden">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6c8289]">
+              WALFORM AI
+            </p>
+            <h2 className="font-serif text-2xl font-bold italic leading-none tracking-[-0.04em]">
+              Wallet Copilot
+            </h2>
+            <p className="mt-1 min-w-0 text-xs text-[#6c8289]">
+              {accountAddress ? (
+                <>Connected · <TruncatedValue value={accountAddress} start={8} end={6} mono /></>
+              ) : (
+                'Not connected'
+              )}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 rounded-full border border-[#d9ece7] p-2 text-[#6c8289] transition hover:border-[#91e0da] hover:bg-[#f4fcf7] hover:text-[#124741]"
+          aria-label="Close chat"
+        >
+          <X className="size-5" />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function ContextBar({
+  pathname,
+  activeFormId,
+  accountAddress,
+  network,
+}: {
+  pathname: string;
+  activeFormId: string | null;
+  accountAddress: string | null;
+  network: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-[#d9ece7] bg-[#f7fffb] px-5 py-2">
+      <span
+        className="max-w-[160px] overflow-hidden rounded-full bg-[#eef8f4] px-3 py-1 text-xs font-semibold text-[#124741]"
+        style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        title={pathname || '/'}
+      >
+        {pathname || '/'}
+      </span>
+      {activeFormId && (
+        <span className="min-w-0 rounded-full bg-[#e7f8f5] px-3 py-1 font-mono text-xs font-semibold text-[#124741]">
+          <TruncatedValue value={activeFormId} start={10} end={8} />
+        </span>
+      )}
+      <span
+        className={cn(
+          'rounded-full px-3 py-1 text-xs font-bold',
+          accountAddress ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
+        )}
+      >
+        {accountAddress ? `${network} · Ready` : 'Not connected'}
+      </span>
+    </div>
+  );
+}
+
 export function FloatingChatWidget() {
+  const account = useCurrentAccount();
+  const pathname = usePathname();
+  const activeFormId = getActiveFormId(pathname);
+  const accountAddress = account?.address ?? null;
+
+  return (
+    <FloatingChatWidgetInner
+      key={`${accountAddress ?? 'no-wallet'}:${activeFormId ?? 'no-form'}`}
+      accountAddress={accountAddress}
+      pathname={pathname ?? '/'}
+      activeFormId={activeFormId}
+    />
+  );
+}
+
+function FloatingChatWidgetInner({
+  accountAddress,
+  pathname,
+  activeFormId,
+}: {
+  accountAddress: string | null;
+  pathname: string;
+  activeFormId: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [executingProposalId, setExecutingProposalId] = useState<string | null>(null);
   const [executedDigests, setExecutedDigests] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const account = useCurrentAccount();
   const suiClient = useSuiClient();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const network = SUI_NETWORK as HarnessNetwork;
@@ -194,6 +365,15 @@ export function FloatingChatWidget() {
           body: {
             messages: nextMessages,
             memory: buildConversationMemory(nextMessages),
+            appContext: {
+              wallet: {
+                connected: Boolean(accountAddress),
+                address: accountAddress,
+                network,
+              },
+              route: pathname,
+              activeFormId,
+            },
           },
         };
       },
@@ -223,26 +403,18 @@ export function FloatingChatWidget() {
 
   const busy = status === 'submitted' || status === 'streaming';
   const hasMessages = messages.length > 0;
-  const welcomeMessage = useMemo(
-    () => ({
-      id: 'welcome',
-      role: 'assistant' as const,
-      text: 'Ask me about WalForm, your connected Sui wallet, balances, owned forms, or prepare a transfer/swap proposal for review.',
-    }),
-    [],
-  );
 
   async function runHarnessTool(call: ChatToolCall) {
     const toolInput = asRecord(call.input);
 
     if (call.toolName === 'getWalletInfo') {
-      return getWalletInfo({ address: account?.address, network });
+      return getWalletInfo({ address: accountAddress, network });
     }
 
     if (call.toolName === 'getSuiBalance') {
       return getSuiBalance({
         client: suiClient,
-        address: account?.address,
+        address: accountAddress,
         coinType: typeof toolInput.coinType === 'string' ? toolInput.coinType : undefined,
       });
     }
@@ -250,25 +422,33 @@ export function FloatingChatWidget() {
     if (call.toolName === 'getCoinBalances') {
       return getCoinBalances({
         client: suiClient,
-        address: account?.address,
+        address: accountAddress,
       });
     }
 
     if (call.toolName === 'getOwnedObjects') {
       return getOwnedObjectSummaries({
         client: suiClient,
-        address: account?.address,
+        address: accountAddress,
         limit: typeof toolInput.limit === 'number' ? toolInput.limit : 20,
       });
     }
 
     if (call.toolName === 'getWalFormPortfolio') {
-      return getWalFormPortfolio(account?.address);
+      return getWalFormPortfolio(accountAddress);
+    }
+
+    if (call.toolName === 'getWalFormFormStats') {
+      return getWalFormFormStats({
+        address: accountAddress,
+        formReference: typeof toolInput.formReference === 'string' ? toolInput.formReference : undefined,
+        activeFormId,
+      });
     }
 
     if (call.toolName === 'proposeTransferSui') {
-      if (!account?.address) return { ok: false, error: 'Connect a wallet first.' };
-      const balance = await suiClient.getBalance({ owner: account.address, coinType: '0x2::sui::SUI' });
+      if (!accountAddress) return { ok: false, error: 'Connect a wallet first.' };
+      const balance = await suiClient.getBalance({ owner: accountAddress, coinType: '0x2::sui::SUI' });
       const proposal = createTransferSuiProposal({
         recipient: String(toolInput.recipient ?? ''),
         amountSui: String(toolInput.amountSui ?? ''),
@@ -278,9 +458,9 @@ export function FloatingChatWidget() {
     }
 
     if (call.toolName === 'proposeTransferSuiMany') {
-      if (!account?.address) return { ok: false, error: 'Connect a wallet first.' };
+      if (!accountAddress) return { ok: false, error: 'Connect a wallet first.' };
       const recipientsInput = Array.isArray(toolInput.recipients) ? toolInput.recipients : [];
-      const balance = await suiClient.getBalance({ owner: account.address, coinType: '0x2::sui::SUI' });
+      const balance = await suiClient.getBalance({ owner: accountAddress, coinType: '0x2::sui::SUI' });
       const proposal = createTransferSuiManyProposal({
         recipients: recipientsInput.map((item) => {
           const record = asRecord(item);
@@ -295,7 +475,7 @@ export function FloatingChatWidget() {
     }
 
     if (call.toolName === 'proposeTransferObject') {
-      if (!account?.address) return { ok: false, error: 'Connect a wallet first.' };
+      if (!accountAddress) return { ok: false, error: 'Connect a wallet first.' };
       const proposal = createTransferObjectProposal({
         objectId: String(toolInput.objectId ?? ''),
         recipient: String(toolInput.recipient ?? ''),
@@ -304,8 +484,8 @@ export function FloatingChatWidget() {
     }
 
     if (call.toolName === 'proposeBatchTransfer') {
-      if (!account?.address) return { ok: false, error: 'Connect a wallet first.' };
-      const balance = await suiClient.getBalance({ owner: account.address, coinType: '0x2::sui::SUI' });
+      if (!accountAddress) return { ok: false, error: 'Connect a wallet first.' };
+      const balance = await suiClient.getBalance({ owner: accountAddress, coinType: '0x2::sui::SUI' });
       const proposal = createBatchTransferProposal({
         recipient: String(toolInput.recipient ?? ''),
         amountSui: typeof toolInput.amountSui === 'string' ? toolInput.amountSui : undefined,
@@ -316,9 +496,9 @@ export function FloatingChatWidget() {
     }
 
     if (call.toolName === 'proposeSwap') {
-      if (!account?.address) return { ok: false, error: 'Connect a wallet first.' };
+      if (!accountAddress) return { ok: false, error: 'Connect a wallet first.' };
       const proposal = await aftermathSwapProvider.quote({
-        walletAddress: account.address,
+        walletAddress: accountAddress,
         network,
         coinInType: String(toolInput.coinInType ?? ''),
         coinOutType: String(toolInput.coinOutType ?? ''),
@@ -346,7 +526,7 @@ export function FloatingChatWidget() {
   }
 
   async function executeProposal(proposal: TransactionProposal) {
-    if (!account?.address) {
+    if (!accountAddress) {
       toast.error('Connect your wallet first.');
       return;
     }
@@ -361,7 +541,7 @@ export function FloatingChatWidget() {
             ? buildTransferObjectTx(proposal)
             : proposal.kind === 'batch_transfer'
               ? buildBatchTransferTx(proposal)
-              : await aftermathSwapProvider.buildTransaction(proposal, account.address);
+              : await aftermathSwapProvider.buildTransaction(proposal, accountAddress);
       const result = await signAndExecuteTransaction({ transaction });
       const digest = result.digest;
 
@@ -378,145 +558,144 @@ export function FloatingChatWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3 max-sm:bottom-4 max-sm:right-4">
+    <div className="fixed inset-0 z-50 pointer-events-none">
       {open && (
-        <section className="chat-panel flex h-[min(720px,calc(100vh-6.5rem))] w-[440px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[28px] border border-[#91e0da66] bg-white shadow-[0_24px_70px_rgba(18,71,65,0.22)]">
-          <header className="relative overflow-hidden border-b border-[#91e0da55] bg-[#124741] px-5 py-4 text-white">
-            <div className="absolute -right-12 -top-16 h-36 w-36 rounded-full bg-[#91e0da] opacity-25 blur-2xl" />
-            <div className="relative flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="grid size-11 place-items-center rounded-2xl border border-white/20 bg-white/12">
-                  <Bot className="size-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-[#91e0da]">
-                    WalForm AI
-                  </p>
-                  <h2 className="font-serif text-2xl font-bold italic leading-none tracking-[-0.04em]">
-                    Wallet copilot
-                  </h2>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-full p-2 text-white/75 transition hover:bg-white/10 hover:text-white"
-                aria-label="Close chat"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-          </header>
+        <>
+          <button
+            type="button"
+            aria-label="Close chat overlay"
+            className="pointer-events-auto fixed inset-0 cursor-default bg-slate-950/10 backdrop-blur-[1px] max-sm:bg-slate-950/15"
+            onClick={() => setOpen(false)}
+          />
+          <section className="chat-panel pointer-events-auto fixed bottom-5 right-5 flex h-[min(84vh,820px)] w-[min(560px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[26px] border border-[#91e0da66] bg-[rgba(255,255,255,0.96)] shadow-[0_28px_90px_rgba(18,71,65,0.28)] backdrop-blur-xl max-sm:bottom-3 max-sm:left-3 max-sm:right-3 max-sm:h-[min(88vh,820px)] max-sm:w-auto">
+            <WidgetHeader accountAddress={accountAddress} onClose={() => setOpen(false)} />
+            <ContextBar
+              pathname={pathname}
+              activeFormId={activeFormId}
+              accountAddress={accountAddress}
+              network={network}
+            />
 
-          <div className="flex-1 space-y-4 overflow-y-auto bg-[#f4fcf7] px-4 py-5">
-            {!hasMessages && (
-              <>
-                <ChatBubble role="assistant">{welcomeMessage.text}</ChatBubble>
-                <div className="grid gap-2">
-                  {SUGGESTIONS.map((suggestion) => (
+            <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#fbfffd,#f4fcf7)] px-4 py-4">
+              <div className="space-y-4">
+                {!hasMessages && (
+                  <>
+                    <div className="rounded-[22px] border border-[#d9ece7] bg-white px-4 py-3 shadow-sm">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6c8289]">
+                        Quick start
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-[#1c3935]">
+                        Ask about wallet balance, your forms, latest submissions, or a specific form name. If a form name appears more than once, I will ask you to choose.
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
+                      {SUGGESTIONS.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => submitMessage(suggestion)}
+                          className="rounded-2xl border border-[#d9ece7] bg-white px-4 py-3 text-left text-sm font-semibold text-[#124741] shadow-sm transition hover:-translate-y-0.5 hover:border-[#91e0da] hover:shadow-md disabled:opacity-50"
+                          disabled={busy}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {messages.map((message) => (
+                  <MessageView
+                    key={message.id}
+                    message={message}
+                    executingProposalId={executingProposalId}
+                    executedDigests={executedDigests}
+                    onExecuteProposal={executeProposal}
+                  />
+                ))}
+
+                {status === 'submitted' && (
+                  <ChatBubble role="assistant">
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" />
+                      Thinking...
+                    </span>
+                  </ChatBubble>
+                )}
+
+                {error && (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                    <p className="font-bold">Chat is unavailable.</p>
+                    <p className="mt-1">
+                      Check `OPENAI_API_KEY` in `.env.local`, then retry the last message.
+                    </p>
                     <button
-                      key={suggestion}
                       type="button"
-                      onClick={() => submitMessage(suggestion)}
-                      className="rounded-2xl border border-[#91e0da55] bg-white px-4 py-3 text-left text-sm font-semibold text-[#124741] shadow-sm transition hover:-translate-y-0.5 hover:border-[#91e0da] hover:shadow-md disabled:opacity-50"
-                      disabled={busy}
+                      onClick={() => regenerate()}
+                      className="mt-3 inline-flex items-center gap-2 rounded-full bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-800"
                     >
-                      {suggestion}
+                      <RefreshCcw className="size-3.5" />
+                      Retry
                     </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {messages.map((message) => (
-              <MessageView
-                key={message.id}
-                message={message}
-                executingProposalId={executingProposalId}
-                executedDigests={executedDigests}
-                onExecuteProposal={executeProposal}
-              />
-            ))}
-
-            {status === 'submitted' && (
-              <ChatBubble role="assistant">
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="size-4 animate-spin" />
-                  Thinking...
-                </span>
-              </ChatBubble>
-            )}
-
-            {error && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                <p className="font-bold">Chat is unavailable.</p>
-                <p className="mt-1">
-                  Check `OPENAI_API_KEY` in `.env.local`, then retry the last message.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => regenerate()}
-                  className="mt-3 inline-flex items-center gap-2 rounded-full bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-800"
-                >
-                  <RefreshCcw className="size-3.5" />
-                  Retry
-                </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          <form onSubmit={handleSubmit} className="border-t border-[#91e0da55] bg-white p-3">
-            <div className="flex items-end gap-2 rounded-[22px] border border-[#d9ece7] bg-[#f8fffc] p-2 focus-within:border-[#91e0da] focus-within:ring-4 focus-within:ring-[#91e0da33]">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    submitMessage();
-                  }
-                }}
-                rows={1}
-                placeholder="Ask about wallet, forms, or swaps..."
-                className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-[#124741] outline-none placeholder:text-[#6c8289]"
-                disabled={busy || error != null}
-              />
-              {busy ? (
-                <button
-                  type="button"
-                  onClick={stop}
-                  className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#124741] text-white transition hover:bg-[#0d302c]"
-                  aria-label="Stop response"
-                >
-                  <Square className="size-4 fill-current" />
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!input.trim() || error != null}
-                  className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#124741] text-white transition hover:bg-[#0d302c] disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Send message"
-                >
-                  <Send className="size-4" />
-                </button>
-              )}
             </div>
-          </form>
-        </section>
+
+            <form onSubmit={handleSubmit} className="border-t border-[#d9ece7] bg-white p-3">
+              <div className="flex items-end gap-2 rounded-[22px] border border-[#d9ece7] bg-[#f8fffc] p-2 focus-within:border-[#91e0da] focus-within:ring-4 focus-within:ring-[#91e0da33]">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      submitMessage();
+                    }
+                  }}
+                  rows={1}
+                  placeholder="Ask about wallet, forms, or swaps..."
+                  className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-6 text-[#124741] outline-none placeholder:text-[#6c8289]"
+                  disabled={busy || error != null}
+                />
+                {busy ? (
+                  <button
+                    type="button"
+                    onClick={stop}
+                    className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#124741] text-white transition hover:bg-[#0d302c]"
+                    aria-label="Stop response"
+                  >
+                    <Square className="size-4 fill-current" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || error != null}
+                    className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#124741] text-white transition hover:bg-[#0d302c] disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Send message"
+                  >
+                    <Send className="size-4" />
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+        </>
       )}
 
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className={cn(
-          'group grid size-16 place-items-center rounded-full border border-[#91e0da88] bg-[#124741] text-white shadow-[0_18px_45px_rgba(18,71,65,0.32)] transition hover:-translate-y-1 hover:bg-[#0d302c]',
-          open && 'scale-95',
-        )}
-        aria-label={open ? 'Hide chat assistant' : 'Open chat assistant'}
-      >
-        {open ? <X className="size-6" /> : <MessageCircle className="size-7" />}
-      </button>
+      {!open && (
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className={cn(
+            'pointer-events-auto fixed bottom-5 right-5 grid size-16 place-items-center rounded-full border border-[#91e0da88] bg-[#124741] text-white shadow-[0_18px_45px_rgba(18,71,65,0.32)] transition hover:-translate-y-1 hover:bg-[#0d302c] max-sm:bottom-4 max-sm:right-4',
+          )}
+          aria-label="Open chat assistant"
+        >
+          <MessageCircle className="size-7" />
+        </button>
+      )}
     </div>
   );
 }
@@ -533,11 +712,10 @@ function MessageView({
   onExecuteProposal: (proposal: TransactionProposal) => void;
 }) {
   const text = getText(message);
-  const hideTextForDataTool = message.role === 'assistant' && hasRenderableDataTool(message);
 
   return (
     <div className="space-y-3">
-      {text && !hideTextForDataTool && <ChatBubble role={message.role}>{text}</ChatBubble>}
+      {text && <ChatBubble role={message.role}>{text}</ChatBubble>}
       {message.parts.map((part, index) => {
         if (!part.type.startsWith('tool-')) return null;
         return (
@@ -643,6 +821,10 @@ function ToolPartView({
     return <PortfolioCard data={asRecord(data)} />;
   }
 
+  if (toolName === 'getWalFormFormStats') {
+    return <FormStatsCard data={asRecord(data)} />;
+  }
+
   return (
     <div className="rounded-2xl border border-[#d9ece7] bg-white px-4 py-3 text-sm text-[#1c3935] shadow-sm">
       <div className="flex items-center gap-2 font-bold text-[#124741]">
@@ -651,6 +833,97 @@ function ToolPartView({
       </div>
     </div>
   );
+}
+
+function CopilotCard({
+  children,
+  variant = 'default',
+  className,
+}: {
+  children: React.ReactNode;
+  variant?: 'default' | 'warning' | 'proposal';
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'min-w-0 max-w-full overflow-hidden rounded-2xl border text-sm shadow-sm',
+        variant === 'default' && 'border-[#d9ece7] bg-white text-[#1c3935]',
+        variant === 'warning' && 'border-amber-200 bg-amber-50 text-amber-950',
+        variant === 'proposal' && 'rounded-[24px] border-[#9adbd5] bg-white text-[#1c3935] shadow-[0_16px_40px_rgba(18,71,65,0.12)]',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+type ActionIntent = 'primary' | 'secondary' | 'ghost' | 'success' | 'warning' | 'danger';
+type ActionType =
+  | 'get_wallet'
+  | 'get_balance'
+  | 'get_transactions'
+  | 'get_transaction_detail'
+  | 'get_assets'
+  | 'get_form'
+  | 'copy'
+  | 'refresh'
+  | 'send_token'
+  | 'transfer_token'
+  | 'swap_token'
+  | 'sign_transaction'
+  | 'confirm_transaction'
+  | 'cancel_transaction'
+  | 'open_explorer'
+  | 'retry';
+
+function CopilotActionButton({
+  label,
+  actionType,
+  intent = 'primary',
+  icon,
+  loading,
+  disabled,
+  onClick,
+  className,
+}: {
+  label: string;
+  actionType: ActionType;
+  intent?: ActionIntent;
+  icon?: React.ReactNode;
+  loading?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || loading}
+      data-action-type={actionType}
+      className={cn(
+        'inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.12em] transition',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#91e0da] focus-visible:ring-offset-2',
+        'disabled:cursor-not-allowed disabled:opacity-60',
+        intent === 'primary' && 'bg-[#124741] text-white hover:bg-[#0d302c]',
+        intent === 'secondary' && 'border border-[#d9ece7] bg-white text-[#124741] hover:border-[#91e0da] hover:bg-[#f4fcf7]',
+        intent === 'ghost' && 'bg-transparent text-[#6c8289] hover:text-[#124741]',
+        intent === 'success' && 'bg-emerald-600 text-white hover:bg-emerald-700',
+        intent === 'warning' && 'bg-amber-500 text-white hover:bg-amber-600',
+        intent === 'danger' && 'bg-rose-600 text-white hover:bg-rose-700',
+        className,
+      )}
+    >
+      {loading ? <Loader2 className="size-3.5 animate-spin" /> : icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function CopilotActionGroup({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-wrap gap-2">{children}</div>;
 }
 
 function ChatDataCard({
@@ -667,33 +940,38 @@ function ChatDataCard({
   rows?: Array<{ label: string; value: string }>;
 }) {
   return (
-    <div className="rounded-2xl border border-[#d9ece7] bg-white p-4 text-sm text-[#1c3935] shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#e7f8f5] text-[#124741]">
-          {icon}
+    <CopilotCard>
+      <div className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#e7f8f5] text-[#124741]">
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6c8289]">
+              {label}
+            </p>
+            <p
+              className="mt-1 min-w-0 break-words text-xl font-black leading-tight text-[#124741]"
+              style={{ overflowWrap: 'anywhere' }}
+            >
+              {title}
+            </p>
+          </div>
+          {badge && (
+            <span className="shrink-0 rounded-full bg-[#f4fcf7] px-2.5 py-1 text-xs font-bold uppercase text-[#6c8289]">
+              {badge}
+            </span>
+          )}
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6c8289]">
-            {label}
-          </p>
-          <p className="mt-1 break-words text-xl font-black leading-tight text-[#124741]">
-            {title}
-          </p>
-        </div>
-        {badge && (
-          <span className="rounded-full bg-[#f4fcf7] px-2.5 py-1 text-xs font-bold uppercase text-[#6c8289]">
-            {badge}
-          </span>
+        {rows && rows.length > 0 && (
+          <dl className="mt-3 grid gap-2">
+            {rows.map((row) => (
+              <DataField key={row.label} label={row.label} value={row.value} />
+            ))}
+          </dl>
         )}
       </div>
-      {rows && rows.length > 0 && (
-        <dl className="mt-3 grid gap-2">
-          {rows.map((row) => (
-            <Detail key={row.label} label={row.label} value={row.value} />
-          ))}
-        </dl>
-      )}
-    </div>
+    </CopilotCard>
   );
 }
 
@@ -713,31 +991,35 @@ function OwnedObjectsCard({ data }: { data: unknown[] }) {
   });
 
   return (
-    <div className="rounded-2xl border border-[#d9ece7] bg-white p-4 text-sm text-[#1c3935] shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#e7f8f5] text-[#124741]">
-          <Database className="size-5" />
+    <CopilotCard>
+      <div className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#e7f8f5] text-[#124741]">
+            <Database className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6c8289]">
+              Owned objects
+            </p>
+            <p className="mt-1 text-xl font-black leading-tight text-[#124741]">
+              {data.length} found
+            </p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6c8289]">
-            Owned objects
-          </p>
-          <p className="mt-1 text-xl font-black leading-tight text-[#124741]">
-            {data.length} found
-          </p>
-        </div>
+        {items.length > 0 && (
+          <div className="mt-3 grid gap-2">
+            {items.map((item) => (
+              <div key={item.objectId} className="min-w-0 overflow-hidden rounded-xl bg-[#f4fcf7] px-3 py-2">
+                <p className="font-bold text-[#124741]">{item.name}</p>
+                <div className="mt-1">
+                  <TruncatedValue value={item.objectId} mono copyable />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      {items.length > 0 && (
-        <div className="mt-3 grid gap-2">
-          {items.map((item) => (
-            <div key={item.objectId} className="rounded-xl bg-[#f4fcf7] px-3 py-2">
-              <p className="font-bold text-[#124741]">{item.name}</p>
-              <p className="mt-1 break-all font-mono text-xs text-[#6c8289]">{item.objectId}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    </CopilotCard>
   );
 }
 
@@ -751,31 +1033,33 @@ function TokenBalancesCard({ data }: { data: unknown[] }) {
   });
 
   return (
-    <div className="rounded-2xl border border-[#d9ece7] bg-white p-4 text-sm text-[#1c3935] shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#e7f8f5] text-[#124741]">
-          <CircleDollarSign className="size-5" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6c8289]">
-            Token balances
-          </p>
-          <p className="mt-1 text-xl font-black leading-tight text-[#124741]">
-            {items.length} token{items.length === 1 ? '' : 's'}
-          </p>
-        </div>
-      </div>
-      <div className="mt-3 grid gap-2">
-        {items.map((item) => (
-          <div key={item.symbol} className="rounded-xl bg-[#f4fcf7] px-3 py-2">
-            <p className="font-black text-[#124741]">{item.formatted}</p>
-            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#6c8289]">
-              {item.symbol}
+    <CopilotCard>
+      <div className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#e7f8f5] text-[#124741]">
+            <CircleDollarSign className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6c8289]">
+              Token balances
+            </p>
+            <p className="mt-1 text-xl font-black leading-tight text-[#124741]">
+              {items.length} token{items.length === 1 ? '' : 's'}
             </p>
           </div>
-        ))}
+        </div>
+        <div className="mt-3 grid gap-2">
+          {items.map((item) => (
+            <div key={item.symbol} className="min-w-0 rounded-xl bg-[#f4fcf7] px-3 py-2">
+              <p className="font-black text-[#124741]">{item.formatted}</p>
+              <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#6c8289]">
+                {item.symbol}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </CopilotCard>
   );
 }
 
@@ -783,19 +1067,108 @@ function PortfolioCard({ data }: { data: Record<string, unknown> }) {
   const forms = Array.isArray(data.forms) ? data.forms : [];
   const adminCaps = Array.isArray(data.adminCaps) ? data.adminCaps : [];
   const recentTransactions = Array.isArray(data.recentTransactions) ? data.recentTransactions : [];
+  const summary = asRecord(data.summary);
+  const latestOwnedForm = asRecord(summary.latestOwnedForm);
+  const latestReceivedSubmission = asRecord(summary.latestReceivedSubmission);
+  const latestFormTitle = typeof latestOwnedForm.title === 'string' ? latestOwnedForm.title : null;
+  const latestSubmissionFormTitle = typeof latestReceivedSubmission.formTitle === 'string'
+    ? latestReceivedSubmission.formTitle
+    : null;
+  const latestSubmissionTime = typeof latestReceivedSubmission.submittedAt === 'number'
+    ? new Date(latestReceivedSubmission.submittedAt).toLocaleString()
+    : null;
 
   return (
-    <div className="rounded-2xl border border-[#d9ece7] bg-white p-4 text-sm text-[#1c3935] shadow-sm">
-      <div className="flex items-center gap-2 font-bold text-[#124741]">
-        <ShieldCheck className="size-4" />
-        WalForm portfolio
+    <CopilotCard>
+      <div className="p-4">
+        <div className="flex items-center gap-2 font-bold text-[#124741]">
+          <ShieldCheck className="size-4" />
+          WalForm portfolio
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Metric label="Forms" value={forms.length} />
+          <Metric label="Admin caps" value={adminCaps.length} />
+          <Metric label="Recent tx" value={recentTransactions.length} />
+        </div>
+        {(latestFormTitle || latestSubmissionFormTitle) && (
+          <div className="mt-3 grid gap-2">
+            {latestFormTitle && (
+              <DataField label="Latest owned form" value={latestFormTitle} />
+            )}
+            {latestSubmissionFormTitle && (
+              <DataField
+                label="Latest received submission"
+                value={latestSubmissionTime
+                  ? `${latestSubmissionFormTitle} · ${latestSubmissionTime}`
+                  : latestSubmissionFormTitle}
+              />
+            )}
+          </div>
+        )}
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <Metric label="Forms" value={forms.length} />
-        <Metric label="Admin caps" value={adminCaps.length} />
-        <Metric label="Recent tx" value={recentTransactions.length} />
+    </CopilotCard>
+  );
+}
+
+function FormStatsCard({ data }: { data: Record<string, unknown> }) {
+  const match = String(data.match ?? 'unknown');
+  const form = asRecord(data.form);
+  const stats = asRecord(data.stats);
+  const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+
+  if (match === 'single') {
+    const title = String(form.title ?? 'Unknown form');
+    const createdAt = typeof form.createdAtIso === 'string'
+      ? new Date(form.createdAtIso).toLocaleString()
+      : 'Unknown';
+    const count = Number(stats.bestKnownSubmissionCount ?? form.submission_count ?? 0);
+
+    return (
+      <CopilotCard>
+        <div className="p-4">
+          <div className="flex items-center gap-2 font-bold text-[#124741]">
+            <FileKey2 className="size-4" />
+            {title}
+          </div>
+          <div className="mt-3 grid gap-2">
+            <DataField label="Submissions" value={String(count)} />
+            <DataField label="Created" value={createdAt} />
+            <DataField label="Status" value={form.is_active === true ? 'Active' : 'Closed'} />
+          </div>
+        </div>
+      </CopilotCard>
+    );
+  }
+
+  return (
+    <CopilotCard variant="warning">
+      <div className="p-4">
+        <p className="font-bold">
+          {match === 'multiple' ? 'Multiple forms matched' : 'No matching form found'}
+        </p>
+        {candidates.length > 0 && (
+          <div className="mt-3 grid gap-2">
+            {candidates.slice(0, 5).map((item, index) => {
+              const candidate = asRecord(item);
+              const title = String(candidate.title ?? `Form ${index + 1}`);
+              const id = String(candidate.id ?? '');
+              const createdAt = typeof candidate.createdAtIso === 'string'
+                ? new Date(candidate.createdAtIso).toLocaleString()
+                : 'Unknown';
+
+              return (
+                <div key={`${id}-${index}`} className="min-w-0 overflow-hidden rounded-xl bg-white/70 px-3 py-2">
+                  <p className="font-bold">{title}</p>
+                  <p className="mt-1 min-w-0 text-xs text-amber-800">
+                    {createdAt} · <TruncatedValue value={id} start={8} end={6} />
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
-    </div>
+    </CopilotCard>
   );
 }
 
@@ -854,25 +1227,26 @@ function ProposalCard({
           Wallet signature is required. WalForm only builds the transaction proposal; your wallet executes it.
         </div>
 
-        {digest ? (
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
-            <span className="inline-flex min-w-0 items-center gap-2">
-              <CheckCircle2 className="size-4 shrink-0" />
-              <span className="truncate">Digest {shortId(digest, 10, 8)}</span>
-            </span>
-            <span className="shrink-0 rounded-full bg-white px-2 py-1 uppercase tracking-[0.12em]">Done</span>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={onExecute}
-            disabled={executing}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#124741] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#0d302c] disabled:cursor-wait disabled:opacity-60"
-          >
-            {executing && <Loader2 className="size-3.5 animate-spin" />}
-            Review & sign in wallet
-          </button>
-        )}
+        <CopilotActionGroup>
+          {digest ? (
+            <div className="flex w-full items-center justify-between gap-3 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <CheckCircle2 className="size-4 shrink-0" />
+                <TruncatedValue value={`Digest ${shortId(digest, 10, 8)}`} />
+              </span>
+              <span className="shrink-0 rounded-full bg-white px-2 py-1 uppercase tracking-[0.12em]">Done</span>
+            </div>
+          ) : (
+            <CopilotActionButton
+              label="Review & sign in wallet"
+              actionType="sign_transaction"
+              intent="primary"
+              loading={executing}
+              onClick={onExecute}
+              className="w-full justify-center"
+            />
+          )}
+        </CopilotActionGroup>
       </div>
     </div>
   );
@@ -883,8 +1257,8 @@ function ProposalDetails({ proposal }: { proposal: TransactionProposal }) {
     const transfer = proposal as TransferSuiProposal;
     return (
       <dl className="mt-3 grid gap-2 rounded-2xl bg-[#f4fcf7] p-3 text-xs">
-        <Detail label="Amount" value={`${transfer.amountSui} SUI`} />
-        <Detail label="Recipient" value={transfer.recipient} />
+        <DataField label="Amount" value={`${transfer.amountSui} SUI`} />
+        <DataField label="Recipient" value={transfer.recipient} />
       </dl>
     );
   }
@@ -913,8 +1287,8 @@ function ProposalDetails({ proposal }: { proposal: TransactionProposal }) {
     const transfer = proposal as TransferObjectProposal;
     return (
       <dl className="mt-3 grid gap-2 rounded-2xl bg-[#f4fcf7] p-3 text-xs">
-        <Detail label="Object / NFT" value={transfer.objectId} />
-        <Detail label="Recipient" value={transfer.recipient} />
+        <DataField label="Object / NFT" value={transfer.objectId} />
+        <DataField label="Recipient" value={transfer.recipient} />
       </dl>
     );
   }
@@ -925,10 +1299,10 @@ function ProposalDetails({ proposal }: { proposal: TransactionProposal }) {
     const objectItems = batch.items.filter((item): item is Extract<typeof item, { type: 'object' }> => item.type === 'object');
     return (
       <div className="mt-3 rounded-2xl bg-[#f4fcf7] p-3 text-xs">
-        <Detail label="Recipient" value={batch.recipient} />
+        <DataField label="Recipient" value={batch.recipient} />
         {suiItem && (
           <div className="mt-2">
-            <Detail label="SUI amount" value={`${suiItem.amountSui} SUI`} />
+            <DataField label="SUI amount" value={`${suiItem.amountSui} SUI`} />
           </div>
         )}
         {objectItems.length > 0 && (
@@ -957,35 +1331,57 @@ function ProposalDetails({ proposal }: { proposal: TransactionProposal }) {
   const swap = proposal as SwapProposal;
   return (
     <dl className="mt-3 grid gap-2 rounded-2xl bg-[#f4fcf7] p-3 text-xs">
-      <Detail label="Provider" value="Aftermath Router" />
-      <Detail label="Input" value={`${swap.amountIn} ${swap.coinInType}`} />
-      <Detail label="Expected output" value={`${swap.expectedAmountOut} ${swap.coinOutType}`} />
-      <Detail label="Min output" value={swap.minAmountOut} />
-      <Detail label="Slippage" value={`${(swap.slippage * 100).toFixed(2)}%`} />
+      <DataField label="Provider" value="Aftermath Router" />
+      <DataField label="Input" value={`${swap.amountIn} ${swap.coinInType}`} />
+      <DataField label="Expected output" value={`${swap.expectedAmountOut} ${swap.coinOutType}`} />
+      <DataField label="Min output" value={swap.minAmountOut} />
+      <DataField label="Slippage" value={`${(swap.slippage * 100).toFixed(2)}%`} />
     </dl>
   );
 }
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40,}$/;
 
-function Detail({ label, value }: { label: string; value: string }) {
+function DataField({
+  label,
+  value,
+  copyable,
+  mono,
+}: {
+  label: string;
+  value: string;
+  copyable?: boolean;
+  mono?: boolean;
+}) {
   const isAddr = ADDRESS_RE.test(value);
+  const isLong = value.length > 20;
+  const shouldTrunc = isAddr || isLong;
   return (
-    <div className="grid gap-1">
-      <dt className="font-black uppercase tracking-[0.14em] text-[#6c8289]">{label}</dt>
-      {isAddr ? (
-        <dd
-          className="cursor-default font-mono font-semibold text-[#124741]"
-          title={value}
-        >
-          {shortId(value, 10, 8)}
-        </dd>
-      ) : (
-        <dd className="break-all font-semibold text-[#124741]">{value}</dd>
-      )}
+    <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[#d9ece7] bg-[#f8fffc] px-3 py-2">
+      <dt className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6c8289]">{label}</dt>
+      <dd className="mt-1 min-w-0">
+        {shouldTrunc ? (
+          <TruncatedValue
+            value={value}
+            start={isAddr ? 10 : 8}
+            end={isAddr ? 8 : 6}
+            mono={isAddr || !!mono}
+            copyable={copyable ?? isAddr}
+          />
+        ) : (
+          <span
+            className={cn('text-sm font-semibold text-[#124741]', mono && 'font-mono')}
+            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal' }}
+          >
+            {value}
+          </span>
+        )}
+      </dd>
     </div>
   );
 }
+
+const Detail = DataField;
 
 function renderMarkdown(text: string): React.ReactNode[] {
   const lines = text.split('\n');
@@ -1057,13 +1453,20 @@ function ChatBubble({
     <div className={cn('flex', user ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[88%] rounded-[22px] px-4 py-3 text-sm leading-6 shadow-sm',
+          'max-w-[82%] rounded-[22px] px-4 py-3 text-sm leading-7 shadow-sm max-sm:max-w-[90%]',
           user
             ? 'rounded-br-md bg-[#124741] text-white'
             : 'rounded-bl-md border border-[#d9ece7] bg-white text-[#1c3935]',
-          !user && 'space-y-1',
+          !user && 'space-y-2',
         )}
+        style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
       >
+        {!user && (
+          <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#6c8289]">
+            <span>WalForm AI</span>
+            <span>Response</span>
+          </div>
+        )}
         {isText && !user ? renderMarkdown(children) : children}
       </div>
     </div>

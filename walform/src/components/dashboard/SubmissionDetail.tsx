@@ -49,28 +49,27 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
       <DialogContent
         showCloseButton={false}
         className="
-          !max-w-none !w-[min(780px,calc(100vw-2rem))]
-          max-h-[88vh] overflow-y-auto
+          !max-w-none w-[calc(100vw-2rem)] sm:w-full sm:!max-w-3xl
+          max-h-[90vh] overflow-y-auto overflow-x-hidden
           rounded-[2rem] border border-slate-200 bg-white p-0
           shadow-[0_32px_80px_-12px_rgba(0,0,0,0.18)]
-          sm:!max-w-none
         "
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-8 py-6">
-          <div>
+        <div className="flex items-start sm:items-center justify-between gap-4 border-b border-slate-100 px-5 sm:px-8 py-6">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#eef8f4] text-[#124741]">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef8f4] text-[#124741]">
                 <FileText className="size-5" />
               </div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-slate-950">
+              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-950 truncate">
                 Submission Detail
               </h2>
             </div>
             {submission && (
-              <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-400 pl-[52px]">
-                <Clock className="size-3.5" />
-                Submitted: {new Date(submission.submittedAt).toLocaleString()}
+              <p className="mt-2 flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 pl-0 sm:pl-[52px]">
+                <Clock className="size-3.5 shrink-0" />
+                <span className="truncate">Submitted: {new Date(submission.submittedAt).toLocaleString()}</span>
               </p>
             )}
           </div>
@@ -83,7 +82,7 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
         </div>
 
         {/* Body */}
-        <div className="px-8 py-8">
+        <div className="px-5 sm:px-8 py-8 w-full overflow-hidden">
           {isLoading ? (
             <div className="py-16">
               <LoadingSpinner label="Loading submission…" />
@@ -101,13 +100,15 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
                       Fields
                     </h3>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 divide-y divide-slate-200">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 divide-y divide-slate-200 w-full overflow-hidden">
                     {Object.entries(submission.plainFields).map(([key, val]) => (
-                      <div key={key} className="flex gap-6 px-5 py-4">
-                        <span className="w-44 shrink-0 text-sm font-bold capitalize text-slate-500">
+                      <div key={key} className="flex flex-col sm:flex-row sm:gap-6 gap-2 px-4 sm:px-5 py-4 w-full">
+                        <span className="sm:w-44 shrink-0 text-sm font-bold capitalize text-slate-500">
                           {fieldLabels[key] ?? key.replace(/_/g, ' ')}
                         </span>
-                        <span className="text-sm break-words text-slate-900 flex-1">{String(val)}</span>
+                        <div className="text-sm break-all whitespace-pre-wrap text-slate-900 flex-1 min-w-0">
+                          {String(val)}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -125,20 +126,22 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
                   </div>
 
                   {decryptedFields ? (
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 divide-y divide-emerald-100">
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 divide-y divide-emerald-100 w-full overflow-hidden">
                       {Object.entries(decryptedFields).map(([key, val]) => (
-                        <div key={key} className="flex gap-6 px-5 py-4">
-                          <span className="w-44 shrink-0 text-sm font-bold capitalize text-emerald-700">
+                        <div key={key} className="flex flex-col sm:flex-row sm:gap-6 gap-2 px-4 sm:px-5 py-4 w-full">
+                          <span className="sm:w-44 shrink-0 text-sm font-bold capitalize text-emerald-700">
                             {fieldLabels[key] ?? key.replace(/_/g, ' ')}
                           </span>
-                          <span className="text-sm break-words text-slate-900 flex-1">{String(val)}</span>
+                          <div className="text-sm break-all whitespace-pre-wrap text-slate-900 flex-1 min-w-0">
+                            {String(val)}
+                          </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5">
                       <div className="flex items-center gap-2.5">
-                        <Lock className="size-4 text-amber-600" />
+                        <Lock className="shrink-0 size-4 text-amber-600" />
                         <p className="text-sm font-bold text-amber-700">
                           Fields are end-to-end encrypted with Seal
                         </p>
@@ -169,13 +172,13 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
                       Attached Files
                     </h3>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 w-full overflow-hidden">
                     {Object.entries(submission.fileBlobs).map(([key, fileInfo]) => {
                       const info = typeof fileInfo === 'string'
                         ? { blobId: fileInfo, mimeType: 'application/octet-stream', fileName: key }
                         : fileInfo;
                       return (
-                        <div key={key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div key={key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 w-full min-w-0">
                           <p className="text-sm capitalize text-slate-600 mb-2">{key.replace(/_/g, ' ')}</p>
                           <FileBlobPreview
                             blobId={info.blobId}
@@ -202,7 +205,7 @@ export function SubmissionDetail({ blobId, formId, adminCapId, onClose }: Submis
                     defaultValue={annotation?.note ?? ''}
                     onBlur={(e) => setNote(blobId, e.target.value)}
                     placeholder="Add a note visible only to you…"
-                    className="wf-input resize-none text-sm"
+                    className="wf-input resize-none text-sm w-full max-w-full"
                   />
                 </section>
               )}

@@ -26,6 +26,15 @@ function checkChatRateLimit(ip: string): boolean {
 const chatRequestSchema = z.object({
   messages: z.array(z.record(z.string(), z.unknown())).min(1).max(100),
   memory: z.string().max(8000).optional(),
+  appContext: z.object({
+    wallet: z.object({
+      connected: z.boolean(),
+      address: z.string().nullable(),
+      network: z.string(),
+    }),
+    route: z.string().optional(),
+    activeFormId: z.string().nullable().optional(),
+  }).optional(),
 });
 
 const openaiModel = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
@@ -132,6 +141,16 @@ const chatTools = {
     description: 'Read WalForm-specific on-chain data for the connected wallet: owned forms, admin caps, and recent transactions.',
     inputSchema: z.object({}),
   }),
+  getWalFormFormStats: tool({
+    description: [
+      'Resolve one owned WalForm form for the connected wallet and read form-level stats.',
+      'Use this for questions about a specific form, a form title, current form page, latest form, created time, active status, or submission/response count.',
+      'If multiple owned forms match the same title/reference, the tool returns match=multiple and candidates; ask the user to choose one.',
+    ].join(' '),
+    inputSchema: z.object({
+      formReference: z.string().optional().describe('Form title, partial title, or form object ID. Omit to use current form page or latest owned form.'),
+    }),
+  }),
   proposeTransferSui: tool({
     description: 'Create a SUI transfer proposal. This must never execute automatically; the UI will ask the user to review and sign in their wallet.',
     inputSchema: z.object({
@@ -201,7 +220,25 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { messages, memory } = parsed.data as unknown as { messages: UIMessage[]; memory?: string };
+  const { messages, memory, appContext } = parsed.data as unknown as {
+    messages: UIMessage[];
+    memory?: string;
+    appContext?: {
+      wallet?: { connected?: boolean; address?: string | null; network?: string };
+      route?: string;
+      activeFormId?: string | null;
+    };
+  };
+  const walletAddress = appContext?.wallet?.address ?? null;
+  const walletContext = [
+    'Current app context:',
+    `- Connected wallet: ${walletAddress ? walletAddress : 'none'}`,
+    `- Wallet connected: ${String(Boolean(appContext?.wallet?.connected && walletAddress))}`,
+    `- Network: ${appContext?.wallet?.network ?? 'unknown'}`,
+    `- Current route: ${appContext?.route ?? 'unknown'}`,
+    `- Active form ID from route: ${appContext?.activeFormId ?? 'none'}`,
+    'Default meaning: Vietnamese/English words like "tôi", "của tôi", "my", "me", and "wallet của tôi" refer to this connected wallet unless the user explicitly provides another wallet address.',
+  ].join('\n');
 
   const result = streamText({
     model: openai(openaiModel),
@@ -211,6 +248,15 @@ export async function POST(req: Request) {
       'For smaller read-only data analysis tasks, delegate to askDeepSeekDataAgent and use its structured findings in your final response.',
       'Help users build forms, understand Walrus storage, Sui ownership, Seal encryption, and dashboard workflows.',
       'You can use wallet tools to read connected wallet information and on-chain data.',
+      walletContext,
+      'Answer in the same natural language the user uses. If they ask in Vietnamese, answer in Vietnamese. Keep answers human, concrete, and not robotic.',
+      'For any user question about their forms, submissions, responses, admin caps, form IDs, latest form, recent form, or WalForm portfolio, call getWalFormPortfolio before answering unless the answer is already present in session memory.',
+      'For questions about a specific form title/id, duplicate form names, form creation time, active status, or submission/response count, call getWalFormFormStats. If it returns match=multiple, do not choose randomly; ask the user to pick from the candidates with short IDs/created times.',
+      'If the user asks about "form này" and active form ID is present in current app context, call getWalFormFormStats without formReference so the current form page can be used.',
+      'When getWalFormPortfolio returns summary.latestOwnedForm, summary.latestReceivedSubmission, or summary.latestRecentTransaction, use those exact facts instead of only repeating counts.',
+      'Interpret "form gần nhất tôi tạo/sở hữu" as latestOwnedForm. Interpret "response/submission gần nhất trên form của tôi" as latestReceivedSubmission.',
+      'If the user asks "form gần nhất tôi submit" or similar, do not pretend the wallet portfolio can prove respondent history: WalForm submissions do not require a wallet. Ask whether they mean the latest form they own/created, or the latest response received on their forms. If latestReceivedSubmission exists, offer it as the closest available fact.',
+      'If required data is missing or ambiguous, ask one concise clarifying question and mention what data is needed, rather than giving a vague answer.',
       'Distinguish fungible tokens from owned objects: use getCoinBalances for token/coin questions, and getOwnedObjects only for NFTs or object resources.',
       'Use askDeepSeekDataAgent after read-only tool outputs need summarization, normalization, or lightweight data lookup so the main OpenAI agent does less low-level analysis.',
       'For transfer and swap requests, only create a proposal. Never claim a transaction was executed unless the UI reports a transaction digest.',

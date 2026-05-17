@@ -25,6 +25,7 @@ export function useSubmission(blobId: string | undefined) {
 export interface LoadedSubmission {
   blobId: string;
   blob: SubmissionBlob;
+  formId: string;
   formTitle: string;
 }
 
@@ -43,13 +44,13 @@ export function useAllSubmissions(forms: FormOnChain[]): {
     })),
   });
 
-  // Collect (blobId, formTitle) pairs from all loaded indices
-  const blobEntries: { blobId: string; formTitle: string }[] = [];
+  // Collect (blobId, formId, formTitle) pairs from all loaded indices
+  const blobEntries: { blobId: string; formId: string; formTitle: string }[] = [];
   for (let i = 0; i < forms.length; i++) {
     const idx = indexQueries[i].data;
     if (idx) {
       for (const blobId of idx.blobIds) {
-        blobEntries.push({ blobId, formTitle: forms[i].title });
+        blobEntries.push({ blobId, formId: forms[i].id, formTitle: forms[i].title });
       }
     }
   }
@@ -68,7 +69,12 @@ export function useAllSubmissions(forms: FormOnChain[]): {
   for (let i = 0; i < blobEntries.length; i++) {
     const blob = blobQueries[i].data;
     if (blob) {
-      submissions.push({ blobId: blobEntries[i].blobId, blob, formTitle: blobEntries[i].formTitle });
+      submissions.push({
+        blobId: blobEntries[i].blobId,
+        blob,
+        formId: blobEntries[i].formId,
+        formTitle: blobEntries[i].formTitle,
+      });
     }
   }
 

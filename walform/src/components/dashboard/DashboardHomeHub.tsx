@@ -41,21 +41,39 @@ export function DashboardHomeHub({ forms, isLoading, address }: DashboardHomeHub
   const { submissions: loadedSubmissions, isLoading: submissionsLoading } = useAllSubmissions(forms);
   const { data: walletActivity = [] } = useWalletActivity(address);
 
-  const dashboardForms: DashboardForm[] = useMemo(
-    () =>
-      forms.map((f) => ({
+  const dashboardForms: DashboardForm[] = useMemo(() => {
+    // Count actual submissions per formId from Walrus data
+    const walrusCount: Record<string, number> = {};
+    for (const f of forms) walrusCount[f.id] = 0;
+    for (const s of loadedSubmissions) {
+      walrusCount[s.formId] = (walrusCount[s.formId] ?? 0) + 1;
+    }
+
+    return [...forms]
+      .sort((a, b) => {
+        const aTime = a.last_index_updated && a.last_index_updated > a.created_at ? a.last_index_updated : a.created_at;
+        const bTime = b.last_index_updated && b.last_index_updated > b.created_at ? b.last_index_updated : b.created_at;
+        return bTime - aTime;
+      })
+      .map((f) => ({
         id: f.id,
         title: f.title,
         type: f.form_type,
         status: f.is_active ? 'Active' : 'Closed',
-        responses: f.submission_count,
+        responses: Math.max(f.submission_count, walrusCount[f.id] ?? 0),
         questions: undefined,
-        updatedAt: new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      })),
-    [forms],
-  );
+        updatedAt: new Date(
+          f.last_index_updated && f.last_index_updated > f.created_at
+            ? f.last_index_updated
+            : f.created_at,
+        ).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      }));
+  }, [forms, loadedSubmissions]);
 
-  const totalSubmissions = forms.reduce((s, f) => s + f.submission_count, 0);
+  const totalSubmissions = useMemo(
+    () => dashboardForms.reduce((s, f) => s + f.responses, 0),
+    [dashboardForms],
+  );
 
   const chartData = useMemo(
     () => buildChartData(loadedSubmissions.map((s) => s.blob.submittedAt)),

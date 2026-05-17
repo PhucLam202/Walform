@@ -10,6 +10,7 @@ import {
   SUI_GRPC_URL,
   SUI_NETWORK,
 } from './constants';
+import { getSuiClient } from './sui-client';
 
 export type WalformSealClient = SealClient;
 
@@ -151,13 +152,15 @@ export async function decryptSubmission(params: {
   sealRef?: string;
 }): Promise<string> {
   const sealClient = params.sealClient ?? getSealClient();
-  const suiClient = params.suiClient ?? getSealSuiClient();
   const tx = buildSealApprovePTB({
     formObjectId: params.formId,
     adminCapId: params.adminCapId,
   });
   tx.setSenderIfNotSet(params.sessionKey.getAddress());
-  const txBytes = await tx.build({ client: suiClient });
+  // Use HTTP JSON-RPC client for tx.build() — SuiGrpcClient does not fully
+  // implement the interface required to resolve object refs and gas coins,
+  // which causes BCS serialization failures in the Seal committee validator.
+  const txBytes = await tx.build({ client: getSuiClient() as never });
 
   const decrypted = await sealClient.decrypt({
     data: base64ToBytes(params.encryptedData),
